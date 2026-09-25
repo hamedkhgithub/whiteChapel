@@ -57,3 +57,9 @@ Not yet implemented: board adjacency/map validation and full Hell-phase setup au
 - Replaced ambiguous `sumOf` with an explicitly typed `fold`.
 - Made `MoveChip` a `RowScope` composable so `Modifier.weight()` is valid.
 - The reported line 258 arithmetic ambiguity was a cascading type-inference error from the ambiguous movement-track expression.
+
+## v1.3.4
+- Popup when جک is arrested: detectives win.
+- Popup when the 15-space movement allowance is exhausted before reaching the hideout: detectives win.
+- Popup when جک reaches and declares the hideout on Night 4: جک wins.
+- Visible English `Jack` labels were changed to `جک` for cleaner RTL display.

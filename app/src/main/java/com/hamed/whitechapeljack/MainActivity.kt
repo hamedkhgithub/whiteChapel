@@ -126,12 +126,14 @@ class MainActivity:ComponentActivity(){
      save()
     },
     onPass={save();page="detective"},
+    onGameLost={gameOver=true;save();page="audit"},
     onEscape={
      if(!escaped.contains(night))escaped+=night
      if(night==4){gameOver=true;save();page="audit"} else {night++;save();page="detective"}
     })
    "detective"->DetectivePage(night,moves,starts,queries.filter{it.night==night},
     onInquiry={q->queries+=q;save()},
+    onGameLost={gameOver=true;save();page="audit"},
     onJackTurn={page="unlock"},
     escapedPrevious=escaped.contains(night-1) && starts[night]==null)
    "unlock"->UnlockPage(pinHash,onSuccess={page="jack"},onCancel={page="detective"})
@@ -194,12 +196,13 @@ class MainActivity:ComponentActivity(){
 
 @Composable private fun JackPage(
  night:Int,hideout:Int,start:Int?,nightMoves:List<JackMove>,
- onSetStart:(Int,Int?)->Unit,onMove:(JackMove)->Unit,onUndoLast:(Int)->Unit,onPass:()->Unit,onEscape:()->Unit
+ onSetStart:(Int,Int?)->Unit,onMove:(JackMove)->Unit,onUndoLast:(Int)->Unit,onPass:()->Unit,onGameLost:()->Unit,onEscape:()->Unit
 ){
  var startText by remember(night){mutableStateOf(if(night==3)(start?.let{""}?:"") else (start?.toString()?:""))}
  var secondCrime by remember(night){mutableStateOf("")}
  var type by remember{mutableStateOf(MoveType.NORMAL)};var d1 by remember{mutableStateOf("")};var d2 by remember{mutableStateOf("")}
  var hideoutPopup by remember{mutableStateOf(false)};var hideoutVisible by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")}
+ var trackLossPopup by remember{mutableStateOf(false)};var jackWinPopup by remember{mutableStateOf(false)}
  var undoTarget by remember{mutableStateOf<JackMove?>(null)}
  var moveMadeThisTurn by remember(night){mutableStateOf(false)}
  val coachMax=listOf(0,3,2,2,1)[night];val alleyMax=listOf(0,2,2,1,1)[night]
@@ -210,7 +213,7 @@ class MainActivity:ComponentActivity(){
  Background{
   Column(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
    Box(Modifier.fillMaxWidth()){
-    SimpleTitle("حرکت‌های جک","Jack's Movement • شب $night")
+    SimpleTitle("حرکت‌های جک","حرکت‌های جک • شب $night")
     Row(
      Modifier.align(Alignment.TopEnd).background(Color(0xCC11100E),RoundedCornerShape(8.dp)).border(1.dp,Gold.copy(alpha=.65f),RoundedCornerShape(8.dp)).padding(start=9.dp,end=4.dp),
      verticalAlignment=Alignment.CenterVertically
@@ -224,7 +227,7 @@ class MainActivity:ComponentActivity(){
    GrayCard{
     Text(if(night==3)"محل‌های ارتکاب قتل (Double Event)" else "محل ارتکاب قتل",color=Color.Black,fontWeight=FontWeight.Bold,fontSize=18.sp)
     if(night==3 && start==null){
-     Text("ترتیب دو قتل محرمانه است؛ محل دوم، موقعیت شروع فرار Jack است.",color=Color.Black,fontSize=12.sp)
+     Text("ترتیب دو قتل محرمانه است؛ محل دوم، موقعیت شروع فرار جک است.",color=Color.Black,fontSize=12.sp)
      DarkField(startText,{startText=it.filter(Char::isDigit).take(3)},"قتل اول","⌖",KeyboardType.Number)
      DarkField(secondCrime,{secondCrime=it.filter(Char::isDigit).take(3)},"قتل دوم / شروع فرار","⌖",KeyboardType.Number)
      Button(
@@ -280,6 +283,7 @@ class MainActivity:ComponentActivity(){
         moveMadeThisTurn=true
         val end=secondDestination ?: firstDestination
         hideoutPopup=(type==MoveType.NORMAL&&end==hideout)
+        if(!hideoutPopup && trackUsed+cost==15) trackLossPopup=true
         error=""
        }
       }
@@ -299,7 +303,7 @@ class MainActivity:ComponentActivity(){
      shape=RoundedCornerShape(9.dp),
      colors=ButtonDefaults.buttonColors(containerColor=DarkButton,contentColor=Gold,disabledContainerColor=Color(0xFF555555),disabledContentColor=Color(0xFFB8B8B8))
     ){
-     Text(if(moveMadeThisTurn)"🔒   تحویل به کارآگاه‌ها" else "ابتدا حرکت Jack را ثبت کنید",fontSize=17.sp,fontWeight=FontWeight.Bold)
+     Text(if(moveMadeThisTurn)"🔒   تحویل به کارآگاه‌ها" else "ابتدا حرکت جک را ثبت کنید",fontSize=17.sp,fontWeight=FontWeight.Bold)
     }
    }
   }
@@ -309,7 +313,7 @@ class MainActivity:ComponentActivity(){
    onDismissRequest={undoTarget=null},
    containerColor=Color(0xFF11100E),
    title={Text("اصلاح حرکت",color=Color.White,fontWeight=FontWeight.Bold)},
-   text={Text("فقط آخرین حرکتِ همین نوبت حذف می‌شود و Jack می‌تواند همان نوبت را دوباره ثبت کند. حرکت‌های قبلی شب قابل ویرایش نیستند.",color=Color(0xFFF2DFC0))},
+   text={Text("فقط آخرین حرکتِ همین نوبت حذف می‌شود و جک می‌تواند همان نوبت را دوباره ثبت کند. حرکت‌های قبلی شب قابل ویرایش نیستند.",color=Color(0xFFF2DFC0))},
    confirmButton={
     Button(onClick={
      onUndoLast(target.turn)
@@ -326,7 +330,22 @@ class MainActivity:ComponentActivity(){
    dismissButton={TextButton(onClick={undoTarget=null}){Text("انصراف",color=Gold)}}
   )
  }
- if(hideoutPopup)HideoutDialog(onEscape=onEscape,onContinue={hideoutPopup=false;onPass()})
+ if(hideoutPopup)HideoutDialog(
+  onEscape={hideoutPopup=false;if(night==4)jackWinPopup=true else onEscape()},
+  onContinue={hideoutPopup=false;onPass()}
+ )
+ if(trackLossPopup)GameResultDialog(
+  title="جک به مخفیگاه نرسید",
+  message="تعداد حرکت‌های مجاز این شب تمام شد و جک به مخفیگاه نرسید. کارآگاه‌ها برنده شدند.",
+  buttonText="مشاهده نتیجه بازی",
+  onConfirm={trackLossPopup=false;onGameLost()}
+ )
+ if(jackWinPopup)GameResultDialog(
+  title="جک برنده شد",
+  message="جک در شب چهارم به مخفیگاه رسید. جک برنده بازی شد.",
+  buttonText="مشاهده نتیجه بازی",
+  onConfirm={jackWinPopup=false;onEscape()}
+ )
 }
 
 private fun currentLocation(start:Int,moves:List<JackMove>):Int =
@@ -334,10 +353,11 @@ private fun currentLocation(start:Int,moves:List<JackMove>):Int =
 
 @Composable private fun DetectivePage(
  night:Int,allMoves:List<JackMove>,starts:Map<Int,Int>,history:List<Inquiry>,
- onInquiry:(Inquiry)->Unit,onJackTurn:()->Unit,escapedPrevious:Boolean
+ onInquiry:(Inquiry)->Unit,onGameLost:()->Unit,onJackTurn:()->Unit,escapedPrevious:Boolean
 ){
  var house by remember{mutableStateOf("")}
  var result by remember{mutableStateOf("اطلاعات محرمانه جک نمایش داده نمی‌شود.")}
+ var arrestWinPopup by remember{mutableStateOf(false)}
  val current=allMoves.lastOrNull{it.night==night}?.let{it.second?:it.first}?:starts[night]
  fun visited(h:Int):Boolean = starts[night]==h || allMoves.any{it.night==night && (it.first==h || it.second==h)}
  Background{
@@ -354,7 +374,7 @@ private fun currentLocation(start:Int,moves:List<JackMove>):Int =
      },modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=Blue,contentColor=Color.White)){Text("⌕ جستجوی سرنخ",fontWeight=FontWeight.Bold)}
      Button(onClick={
       val h=house.toIntOrNull()
-      if(h != null && h in 1..195){val ok=current==h;val q=Inquiry(night,history.size+1,h,InquiryType.ARREST,ok);onInquiry(q);result=if(ok)"✓ Jack در خانه $h دستگیر شد." else "✗ دستگیری در خانه $h ناموفق بود.";house=""}
+      if(h != null && h in 1..195){val ok=current==h;val q=Inquiry(night,history.size+1,h,InquiryType.ARREST,ok);onInquiry(q);result=if(ok)"✓ جک در خانه $h دستگیر شد." else "✗ دستگیری در خانه $h ناموفق بود.";if(ok)arrestWinPopup=true;house=""}
      },modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=Blood,contentColor=Color.White)){Text("⛓ دستگیری",fontWeight=FontWeight.Bold)}
     }
    }
@@ -370,6 +390,12 @@ private fun currentLocation(start:Int,moves:List<JackMove>):Int =
    Button(onClick=onJackTurn,modifier=Modifier.fillMaxWidth().height(58.dp).border(1.dp,Gold,RoundedCornerShape(9.dp)),shape=RoundedCornerShape(9.dp),colors=ButtonDefaults.buttonColors(containerColor=DarkButton,contentColor=Gold)){Text("🔐   نوبت جک",fontWeight=FontWeight.Bold,fontSize=18.sp)}
   }
  }
+ if(arrestWinPopup)GameResultDialog(
+  title="جک دستگیر شد",
+  message="جک دستگیر شد و کارآگاه‌ها بازی را بردند.",
+  buttonText="مشاهده نتیجه بازی",
+  onConfirm={arrestWinPopup=false;onGameLost()}
+ )
 }
 
 @Composable private fun UnlockPage(pinHash:String,onSuccess:()->Unit,onCancel:()->Unit){
@@ -405,6 +431,20 @@ private fun currentLocation(start:Int,moves:List<JackMove>):Int =
    RedButton("پایان و پاک کردن بازی",true,onClear)
   }
  }
+}
+
+@Composable private fun GameResultDialog(title:String,message:String,buttonText:String,onConfirm:()->Unit){
+ AlertDialog(
+  onDismissRequest={},
+  containerColor=Color(0xFF11100E),
+  title={Text(title,color=Gold,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth(),fontWeight=FontWeight.Bold,fontSize=22.sp)},
+  text={Text(message,color=Color(0xFFF2DFC0),textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth(),fontSize=16.sp)},
+  confirmButton={
+   Button(onClick=onConfirm,modifier=Modifier.fillMaxWidth().height(54.dp),colors=ButtonDefaults.buttonColors(containerColor=Blood)){
+    Text(buttonText,fontWeight=FontWeight.Bold)
+   }
+  }
+ )
 }
 
 @Composable private fun HideoutDialog(onEscape:()->Unit,onContinue:()->Unit){
