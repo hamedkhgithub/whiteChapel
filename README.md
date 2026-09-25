@@ -1,21 +1,49 @@
-# Whitechapel Jack — UI Stage 2
+# Whitechapel Jack — Near Final v1
 
-Only UI through Jack movement has been implemented.
+GitHub-ready Android project with automatic debug APK build.
 
-- 5-second splash
-- Main menu
-- New Game Setup
-  - gray cards
-  - black text and Hideout number
-  - no visible "1 to 195" helper text
-  - PIN + PIN confirmation
-- Jack Movement UI
-  - crime scene / starting house
-  - Normal / Coach / Alley selector
-  - Coach requires two destinations
-  - movement history
-  - hand-to-detectives button (UI only)
-  - Hideout popup with Declare Escape / Continue choices
-- Same approved Victorian background is used for setup and Jack movement.
+Implemented:
+- approved 5-second splash + main menu theme
+- persistent game state; Continue always resumes in Detective Mode
+- system Back is consumed during play; Jack screen Back locks and switches to Detective Mode
+- New Game: fixed Hideout + PIN
+- Jack screen: Night number, "محل ارتکاب قتل", gray/black registration button
+- Normal / Coach / Alley movement UI
+- official per-night special-move limits:
+  Night 1: Coach 3, Alley 2
+  Night 2: Coach 2, Alley 2
+  Night 3: Coach 2, Alley 1
+  Night 4: Coach 1, Alley 1
+- Coach requires two distinct destinations and consumes two move-track spaces
+- Alley icon is red
+- 15-space move-track guard
+- Hideout popup: declare escape or keep secret and continue
+- Detective Mode: Search, Arrest, per-night inquiry history, Jack PIN handoff
+- final Audit screen
+- local persistence
 
-No detective screen or later gameplay screens are implemented yet.
+Not yet implemented: board adjacency/map validation and full Hell-phase setup automation.
+
+## v1.1
+- Night 3 Double Event corrected.
+- Jack records two Crime Scenes in a secret order.
+- The second/rightmost Crime Scene becomes Jack's Hunting start.
+- The second murder consumes the first movement space of Night 3.
+- Final Audit reveals both Night 3 crime scenes in recorded order.
+
+## v1.2
+- Jack can correct a mistaken move before handing the device to detectives.
+- Each recorded move has an Edit/اصلاح action.
+- Because later destinations depend on earlier positions, correcting a move removes that move and every later move of the current night, then Jack re-enters the route from that point.
+- Special-move counters and Move Track usage are automatically recalculated after correction.
+- Once handed to Detective Mode, the route cannot be edited without the Jack PIN handoff.
+
+## v1.3 — Turn-by-turn Hunting correction
+- Jack may register exactly one move per Jack turn.
+- Coach is still one Jack turn, while recording two destinations / two Move Track spaces.
+- After Jack registers that move, all movement-entry controls are locked.
+- Only the just-recorded move can be corrected; previous moves of the Night are locked.
+- Correcting the current move deletes only that move and re-opens the same Jack turn.
+- "Hand to Detectives" is disabled until Jack has successfully registered the move.
+- After handoff, the Detective screen runs; returning to Jack requires the Jack PIN.
+- Continue Game resumes in Detective Mode, never on the secret Jack screen.
