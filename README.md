@@ -47,3 +47,13 @@ Not yet implemented: board adjacency/map validation and full Hell-phase setup au
 - "Hand to Detectives" is disabled until Jack has successfully registered the move.
 - After handoff, the Detective screen runs; returning to Jack requires the Jack PIN.
 - Continue Game resumes in Detective Mode, never on the secret Jack screen.
+
+## v1.3.1 build fix
+- Reworked nullable numeric range checks into explicit Kotlin-safe checks.
+- Removed nullable destination ambiguity in Coach move construction.
+- Gameplay behavior from v1.3 is unchanged.
+
+## v1.3.2 compile fix
+- Replaced ambiguous `sumOf` with an explicitly typed `fold`.
+- Made `MoveChip` a `RowScope` composable so `Modifier.weight()` is valid.
+- The reported line 258 arithmetic ambiguity was a cascading type-inference error from the ambiguous movement-track expression.

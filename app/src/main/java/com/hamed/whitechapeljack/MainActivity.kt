@@ -171,7 +171,8 @@ class MainActivity:ComponentActivity(){
 
 @Composable private fun NewGame(onBack:()->Unit,onStart:(Int,String)->Unit){
  var h by remember{mutableStateOf("")};var pin by remember{mutableStateOf("")};var confirm by remember{mutableStateOf("")}
- val valid=h.toIntOrNull() in 1..195 && pin.length in 4..6 && pin==confirm
+ val hideoutNumber=h.toIntOrNull()
+ val valid=hideoutNumber != null && hideoutNumber in 1..195 && pin.length in 4..6 && pin==confirm
  Background{
   Column(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
    Header("شروع بازی جدید","New Game Setup",onBack,true)
@@ -205,7 +206,7 @@ class MainActivity:ComponentActivity(){
  val coachUsed=nightMoves.count{it.type==MoveType.COACH};val alleyUsed=nightMoves.count{it.type==MoveType.ALLEY}
  val coachLeft=coachMax-coachUsed;val alleyLeft=alleyMax-alleyUsed
  val doubleEventCost=if(night==3)1 else 0
- val trackUsed=doubleEventCost + nightMoves.sumOf{if(it.type==MoveType.COACH)2 else 1}
+ val trackUsed: Int = nightMoves.fold(doubleEventCost) { total, move -> total + if (move.type == MoveType.COACH) 2 else 1 }
  Background{
   Column(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
    SimpleTitle("حرکت‌های جک","Jack's Movement • شب $night")
@@ -218,7 +219,7 @@ class MainActivity:ComponentActivity(){
      Button(
       onClick={
        val a=startText.toIntOrNull();val b=secondCrime.toIntOrNull()
-       if(a in 1..195 && b in 1..195 && a!=b) onSetStart(a!!,b)
+       if(a != null && b != null && a in 1..195 && b in 1..195 && a!=b) onSetStart(a,b)
       },
       colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFBDBDBB),contentColor=Color.Black),
       modifier=Modifier.fillMaxWidth().height(56.dp)
@@ -256,15 +257,17 @@ class MainActivity:ComponentActivity(){
       when{
        moveMadeThisTurn->error="حرکت این نوبت ثبت شده است. ابتدا آن را اصلاح کنید یا گوشی را به کارآگاه‌ها تحویل دهید."
        trackUsed+cost>15->error="ظرفیت Move Track این شب تمام شده است."
-       a !in 1..195 || (type==MoveType.COACH&&b !in 1..195)->error="شماره مقصد معتبر نیست."
+       a == null || a !in 1..195 || (type==MoveType.COACH && (b == null || b !in 1..195))->error="شماره مقصد معتبر نیست."
        type==MoveType.COACH&&coachLeft<=0->error="درشکه‌های این شب تمام شده‌اند."
        type==MoveType.ALLEY&&alleyLeft<=0->error="حرکت کوچه این شب تمام شده است."
        type==MoveType.COACH&&(a==b || a==currentLocation(start,nightMoves) || b==currentLocation(start,nightMoves))->error="در حرکت درشکه، دو مقصد و مبدأ باید متفاوت باشند."
        else->{
-        val m=JackMove(night,nightMoves.size+1+if(night==3)1 else 0,a!!,if(type==MoveType.COACH)b else null,type)
+        val firstDestination=a!!
+        val secondDestination=if(type==MoveType.COACH)b!! else null
+        val m=JackMove(night,nightMoves.size+1+if(night==3)1 else 0,firstDestination,secondDestination,type)
         onMove(m)
         moveMadeThisTurn=true
-        val end=if(type==MoveType.COACH)b!! else a
+        val end=secondDestination ?: firstDestination
         hideoutPopup=(type==MoveType.NORMAL&&end==hideout)
         error=""
        }
@@ -336,11 +339,11 @@ private fun currentLocation(start:Int,moves:List<JackMove>):Int =
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
      Button(onClick={
       val h=house.toIntOrNull()
-      if(h in 1..195){val ok=visited(h!!);val q=Inquiry(night,history.size+1,h,InquiryType.SEARCH,ok);onInquiry(q);result=if(ok)"✓ سرنخ در خانه $h پیدا شد." else "✗ در خانه $h سرنخی نیست.";house=""}
+      if(h != null && h in 1..195){val ok=visited(h);val q=Inquiry(night,history.size+1,h,InquiryType.SEARCH,ok);onInquiry(q);result=if(ok)"✓ سرنخ در خانه $h پیدا شد." else "✗ در خانه $h سرنخی نیست.";house=""}
      },modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=Blue,contentColor=Color.White)){Text("⌕ جستجوی سرنخ",fontWeight=FontWeight.Bold)}
      Button(onClick={
       val h=house.toIntOrNull()
-      if(h in 1..195){val ok=current==h;val q=Inquiry(night,history.size+1,h!!,InquiryType.ARREST,ok);onInquiry(q);result=if(ok)"✓ Jack در خانه $h دستگیر شد." else "✗ دستگیری در خانه $h ناموفق بود.";house=""}
+      if(h != null && h in 1..195){val ok=current==h;val q=Inquiry(night,history.size+1,h,InquiryType.ARREST,ok);onInquiry(q);result=if(ok)"✓ Jack در خانه $h دستگیر شد." else "✗ دستگیری در خانه $h ناموفق بود.";house=""}
      },modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=Blood,contentColor=Color.White)){Text("⛓ دستگیری",fontWeight=FontWeight.Bold)}
     }
    }
@@ -425,7 +428,7 @@ private fun currentLocation(start:Int,moves:List<JackMove>):Int =
   }
  }
 }
-@Composable private fun MoveChip(icon:String,label:String,count:String,selected:Boolean,enabled:Boolean,iconColor:Color,onClick:()->Unit){
+@Composable private fun RowScope.MoveChip(icon:String,label:String,count:String,selected:Boolean,enabled:Boolean,iconColor:Color,onClick:()->Unit){
  FilterChip(selected=selected,onClick=onClick,enabled=enabled,label={
   Row(verticalAlignment=Alignment.CenterVertically){Text(icon,color=iconColor,fontSize=18.sp);Spacer(Modifier.width(3.dp));Text(label,fontWeight=FontWeight.Bold);if(count.isNotEmpty())Text(" ($count)",fontSize=11.sp)}
  },colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Blood,selectedLabelColor=Color.White,containerColor=Color(0xFFE2E0DB),labelColor=Color.Black,disabledContainerColor=Color(0xFF999999),disabledLabelColor=Color.DarkGray),modifier=Modifier.weight(1f))
