@@ -1,12 +1,21 @@
-# Whitechapel Jack — UI Stage 1
+# Whitechapel Jack — UI Stage 2
 
-Only the approved UI stage is implemented:
-1. Full-screen splash with approved artwork and a real 5-second animated loading bar.
-2. Main menu with approved background and Victorian gold/dark buttons.
-3. New Game Setup UI with Hideout + PIN + PIN confirmation.
+Only UI through Jack movement has been implemented.
 
-No gameplay logic, detective pages, validation, guide, or settings pages are implemented yet.
+- 5-second splash
+- Main menu
+- New Game Setup
+  - gray cards
+  - black text and Hideout number
+  - no visible "1 to 195" helper text
+  - PIN + PIN confirmation
+- Jack Movement UI
+  - crime scene / starting house
+  - Normal / Coach / Alley selector
+  - Coach requires two destinations
+  - movement history
+  - hand-to-detectives button (UI only)
+  - Hideout popup with Declare Escape / Continue choices
+- Same approved Victorian background is used for setup and Jack movement.
 
-## GitHub APK
-Push these files to the root of a GitHub repository.
-Then open Actions > Build Android APK > latest run > Artifacts.
+No detective screen or later gameplay screens are implemented yet.
