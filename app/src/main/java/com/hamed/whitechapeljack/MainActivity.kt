@@ -96,7 +96,7 @@ class MainActivity:ComponentActivity(){
 }
 
 @Composable private fun MenuButton(icon:String,fa:String,en:String,enabled:Boolean,onClick:()->Unit){
- Button(onClick,enabled,Modifier.fillMaxWidth().height(70.dp).border(1.dp,Gold,RoundedCornerShape(9.dp)),shape=RoundedCornerShape(9.dp),
+ Button(onClick=onClick,enabled=enabled,modifier=Modifier.fillMaxWidth().height(70.dp).border(1.dp,Gold,RoundedCornerShape(9.dp)),shape=RoundedCornerShape(9.dp),
   colors=ButtonDefaults.buttonColors(containerColor=DarkButton,contentColor=Gold,disabledContainerColor=Color(0xD915120F),disabledContentColor=Gold.copy(.7f)),
   contentPadding=PaddingValues(horizontal=18.dp)){
   Text(icon,fontSize=29.sp);Spacer(Modifier.width(18.dp))
@@ -153,9 +153,9 @@ class MainActivity:ComponentActivity(){
     GrayCard{
      Text("نوع حرکت",color=Color.Black,fontWeight=FontWeight.Bold,fontSize=18.sp)
      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){
-      MoveChip("🚶","عادی",type==MoveType.NORMAL){type=MoveType.NORMAL}
-      MoveChip("♞","درشکه",type==MoveType.COACH){type=MoveType.COACH}
-      MoveChip("↯","کوچه",type==MoveType.ALLEY){type=MoveType.ALLEY}
+      MoveChip("🚶","عادی",type==MoveType.NORMAL,Modifier.weight(1f)){type=MoveType.NORMAL}
+      MoveChip("♞","درشکه",type==MoveType.COACH,Modifier.weight(1f)){type=MoveType.COACH}
+      MoveChip("↯","کوچه",type==MoveType.ALLEY,Modifier.weight(1f)){type=MoveType.ALLEY}
      }
      DarkOutlinedField(d1,{d1=it.filter(Char::isDigit).take(3)},if(type==MoveType.COACH)"مقصد اول" else "خانه مقصد","⌖",KeyboardType.Number)
      if(type==MoveType.COACH)DarkOutlinedField(d2,{d2=it.filter(Char::isDigit).take(3)},"مقصد دوم درشکه","⌖",KeyboardType.Number)
@@ -242,10 +242,10 @@ class MainActivity:ComponentActivity(){
   colors=OutlinedTextFieldDefaults.colors(focusedTextColor=Color.Black,unfocusedTextColor=Color.Black,focusedContainerColor=GrayField,unfocusedContainerColor=GrayField,focusedBorderColor=Color.DarkGray,unfocusedBorderColor=Color.Gray,cursorColor=Color.Black),
   modifier=Modifier.fillMaxWidth())
 }
-@Composable private fun MoveChip(icon:String,label:String,selected:Boolean,onClick:()->Unit){
- FilterChip(selected,onClick,label={Text("$icon  $label",fontWeight=FontWeight.Bold)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Blood,selectedLabelColor=Color.White,containerColor=Color(0xFFE2E0DB),labelColor=Color.Black),modifier=Modifier.weight(1f))
+@Composable private fun MoveChip(icon:String,label:String,selected:Boolean,modifier:Modifier=Modifier,onClick:()->Unit){
+ FilterChip(selected=selected,onClick=onClick,label={Text("$icon  $label",fontWeight=FontWeight.Bold)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Blood,selectedLabelColor=Color.White,containerColor=Color(0xFFE2E0DB),labelColor=Color.Black),modifier=modifier)
 }
 @Composable private fun RedButton(text:String,enabled:Boolean,onClick:()->Unit){
- Button(onClick,enabled,Modifier.fillMaxWidth().height(62.dp).border(1.dp,Gold,RoundedCornerShape(9.dp)),shape=RoundedCornerShape(9.dp),
+ Button(onClick=onClick,enabled=enabled,modifier=Modifier.fillMaxWidth().height(62.dp).border(1.dp,Gold,RoundedCornerShape(9.dp)),shape=RoundedCornerShape(9.dp),
   colors=ButtonDefaults.buttonColors(containerColor=Blood,disabledContainerColor=Color(0xFF551515),contentColor=Color.White,disabledContentColor=Color.Gray)){Text(text,fontSize=20.sp,fontWeight=FontWeight.Bold)}
 }
