@@ -1,15 +1,19 @@
-# Whitechapel Jack v3
-GitHub-ready Android app. Push contents to repo root; Actions builds the debug APK.
+# Whitechapel Jack v4 — GitHub Auto APK
 
-v3:
-- Hideout fixed for entire game (1..195)
-- Crime Scene/start per night
-- Normal/Alley/Coach (Coach stores two destinations)
-- Auto-detect Hideout only after NORMAL move
-- Verified escape screen shown to detectives without revealing route/hideout
+Push all files to the root of a GitHub repository. GitHub Actions builds `app-debug.apk`.
+
+## v4
+- Dark Victorian Whitechapel theme based on the approved mockup
+- Splash/loading artwork included and replaceable at `app/src/main/res/drawable-nodpi/whitechapel_splash.jpg`
+- Improved buttons, parchment cards, hideout/lock/search/arrest visual cues
+- Hideout is fixed for the whole game
+- Reaching Hideout does NOT automatically end the night
+- When Jack reaches Hideout by Normal move, Jack can:
+  - declare escape and end the night, or
+  - keep it secret and continue playing
+- Detective screen never reveals the route or Hideout
 - Per-night Search/Arrest history
-- End-game GAME AUDIT reveals Hideout, all routes and all inquiries
-- Local persistence, PIN lock, FLAG_SECURE
-- Map adjacency validation intentionally disabled
+- Final Game Audit reveals Hideout, all movement history, and inquiries
+- Map adjacency validation is intentionally disabled
 
 APK: Actions > Build Android APK > Artifacts > WhitechapelJack-debug-apk
