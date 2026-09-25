@@ -1,15 +1,15 @@
 package com.hamed.whitechapeljack
 
-import android.content.Context
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -17,122 +17,235 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import org.json.JSONArray
-import org.json.JSONObject
-import java.security.MessageDigest
 
-enum class MoveType { NORMAL, COACH, ALLEY }
-enum class QueryType { SEARCH, ARREST }
-data class JackMove(val night:Int,val turn:Int,val location:Int,val type:MoveType)
-data class Inquiry(val night:Int,val index:Int,val type:QueryType,val location:Int,val success:Boolean)
+private val Gold = Color(0xFFD6AD63)
+private val GoldDark = Color(0xFF7A5725)
+private val Blood = Color(0xFFB41616)
+private val BloodDark = Color(0xFF650B0B)
+private val Ink = Color(0xFF090807)
+private val Parchment = Color(0xFFE7D1A8)
+private val Brown = Color(0xFF352515)
 
-private val Ink=Color(0xFF100E0D)
-private val Panel=Color(0xFF201B17)
-private val Gold=Color(0xFFD2A65A)
-private val Blood=Color(0xFF9D1717)
-private val Parchment=Color(0xFFE7D1A7)
-private val Green=Color(0xFF176B37)
-
-class Store(ctx:Context){
- private val p=ctx.getSharedPreferences("whitechapel_v4",Context.MODE_PRIVATE)
- fun save(pin:String,hideout:Int,night:Int,starts:Map<Int,Int>,moves:List<JackMove>,queries:List<Inquiry>,ended:Set<Int>,gameOver:Boolean){
-  val o=JSONObject().put("pin",pin).put("hideout",hideout).put("night",night).put("gameOver",gameOver)
-  val s=JSONObject();starts.forEach{s.put(it.key.toString(),it.value)};o.put("starts",s)
-  val ma=JSONArray();moves.forEach{ma.put(JSONObject().put("n",it.night).put("t",it.turn).put("l",it.location).put("y",it.type.name))};o.put("moves",ma)
-  val qa=JSONArray();queries.forEach{qa.put(JSONObject().put("n",it.night).put("i",it.index).put("t",it.type.name).put("l",it.location).put("s",it.success))};o.put("queries",qa)
-  val ea=JSONArray();ended.sorted().forEach{ea.put(it)};o.put("ended",ea)
-  p.edit().putString("game",o.toString()).apply()
- }
- fun load():JSONObject?=p.getString("game",null)?.let{runCatching{JSONObject(it)}.getOrNull()}
- fun clear(){p.edit().clear().apply()}
- companion object{fun hash(s:String)=MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString(""){"%02x".format(it)}}
-}
-
-class MainActivity:ComponentActivity(){
- override fun onCreate(b:Bundle?){super.onCreate(b);window.setFlags(WindowManager.LayoutParams.FLAG_SECURE,WindowManager.LayoutParams.FLAG_SECURE);setContent{App(Store(this))}}
-}
-
-@Composable fun App(store:Store){
- var screen by remember{mutableStateOf("splash")}
- var pinHash by remember{mutableStateOf("")};var pin by remember{mutableStateOf("")}
- var hideout by remember{mutableIntStateOf(0)};var night by remember{mutableIntStateOf(1)};var gameOver by remember{mutableStateOf(false)}
- val starts=remember{mutableStateMapOf<Int,Int>()};val moves=remember{mutableStateListOf<JackMove>()};val queries=remember{mutableStateListOf<Inquiry>()};val ended=remember{mutableStateListOf<Int>()}
- fun persist(){store.save(pinHash,hideout,night,starts,moves,queries,ended.toSet(),gameOver)}
- fun restore():Boolean{val o=store.load()?:return false;pinHash=o.getString("pin");hideout=o.getInt("hideout");night=o.getInt("night");gameOver=o.optBoolean("gameOver",false)
-  starts.clear();moves.clear();queries.clear();ended.clear()
-  val s=o.optJSONObject("starts")?:JSONObject();s.keys().forEach{starts[it.toInt()]=s.getInt(it)}
-  val ma=o.optJSONArray("moves")?:JSONArray();for(i in 0 until ma.length()){val x=ma.getJSONObject(i);moves+=JackMove(x.getInt("n"),x.getInt("t"),x.getInt("l"),MoveType.valueOf(x.getString("y")))}
-  val qa=o.optJSONArray("queries")?:JSONArray();for(i in 0 until qa.length()){val x=qa.getJSONObject(i);queries+=Inquiry(x.getInt("n"),x.getInt("i"),QueryType.valueOf(x.getString("t")),x.getInt("l"),x.getBoolean("s"))}
-  val ea=o.optJSONArray("ended")?:JSONArray();for(i in 0 until ea.length())ended+=ea.getInt(i);return true}
- val colors=darkColorScheme(primary=Gold,secondary=Blood,surface=Ink,surfaceVariant=Panel,onPrimary=Color.Black)
- MaterialTheme(colorScheme=colors){
-  if(screen=="splash"){LaunchedEffect(Unit){delay(1600);screen="home"};Splash()}
-  else Surface(Modifier.fillMaxSize(),color=Ink){Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF090909),Color(0xFF1B1410)))).padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-   Text("WHITECHAPEL",color=Color(0xFFCF2929),style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold)
-   when(screen){
-    "home"->{Text("Game Companion",color=Gold);VictorianButton("▶  شروع بازی جدید"){screen="setup"}
-     if(store.load()!=null)VictorianButton("▣  ادامه بازی"){if(restore())screen=if(gameOver)"audit" else "detective"}}
-    "setup"->{var h by remember{mutableStateOf("")};var err by remember{mutableStateOf("")}
-     ParchmentCard{Text("⌂  انتخاب مخفیگاه",fontWeight=FontWeight.Bold);Text("این شماره برای تمام بازی ثابت و محرمانه می‌ماند.")
-      OutlinedTextField(h,{h=it.filter(Char::isDigit).take(3)},leadingIcon={Text("⌂",style=MaterialTheme.typography.headlineSmall)},label={Text("Hideout 1–195")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),modifier=Modifier.fillMaxWidth())}
-     OutlinedTextField(pin,{pin=it.filter(Char::isDigit).take(6)},leadingIcon={Text("🔒")},label={Text("PIN جک")},visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
-     if(err.isNotEmpty())Text(err,color=Color.Red)
-     RedButton("شروع بازی"){val x=h.toIntOrNull();if(pin.length in 4..6&&x in 1..195){pinHash=Store.hash(pin);hideout=x!!;night=1;gameOver=false;starts.clear();moves.clear();queries.clear();ended.clear();pin="";persist();screen="jack"}else err="PIN یا مخفیگاه معتبر نیست."}}
-    "jack"->{Text("حالت جک • Night $night",color=Gold,style=MaterialTheme.typography.titleLarge)
-     if(starts[night]==null){var st by remember(night){mutableStateOf("")};ParchmentCard{Text("Crime Scene / موقعیت شروع")
-      OutlinedTextField(st,{st=it.filter(Char::isDigit).take(3)},label={Text("Start 1–195")},modifier=Modifier.fillMaxWidth())
-      RedButton("ثبت شروع شب"){val x=st.toIntOrNull();if(x in 1..195){starts[night]=x!!;persist()}}}}
-     else{
-      var type by remember{mutableStateOf(MoveType.NORMAL)};var a by remember{mutableStateOf("")};var b by remember{mutableStateOf("")};var msg by remember{mutableStateOf("")};var atHideout by remember{mutableStateOf(false)}
-      Text("موقعیت شروع: ${starts[night]}   •   مخفیگاه: $hideout")
-      Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){MoveType.entries.forEach{t->FilterChip(type==t,{type=t},label={Text(when(t){MoveType.NORMAL->"🚶 عادی";MoveType.ALLEY->"↯ کوچه";MoveType.COACH->"▣ درشکه"})})}}
-      OutlinedTextField(a,{a=it.filter(Char::isDigit).take(3)},label={Text(if(type==MoveType.COACH)"مقصد اول Coach" else "مقصد")},modifier=Modifier.fillMaxWidth())
-      if(type==MoveType.COACH)OutlinedTextField(b,{b=it.filter(Char::isDigit).take(3)},label={Text("مقصد دوم Coach")},modifier=Modifier.fillMaxWidth())
-      Text("اعتبارسنجی اتصال نقشه: خاموش",color=Gold)
-      RedButton("ثبت حرکت"){val x=a.toIntOrNull();val y=b.toIntOrNull()
-       if(x !in 1..195||(type==MoveType.COACH&&y !in 1..195))msg="شماره مقصد معتبر نیست."
-       else{var t=moves.count{it.night==night}+1;moves+=JackMove(night,t++,x!!,type);if(type==MoveType.COACH)moves+=JackMove(night,t,y!!,type);persist();atHideout=type==MoveType.NORMAL&&x==hideout;msg=if(atHideout)"شما در مخفیگاه هستید." else "حرکت ثبت شد.";a="";b=""}}
-      if(msg.isNotEmpty())Text(msg,color=if(atHideout)Gold else Color.White)
-      if(atHideout){ParchmentCard{Text("⌂ شما با حرکت عادی به مخفیگاه رسیده‌اید.",fontWeight=FontWeight.Bold)
-       Button({if(!ended.contains(night))ended+=night;if(night==4){gameOver=true;persist();screen="audit"}else{persist();screen="escaped"}},colors=ButtonDefaults.buttonColors(containerColor=Green),modifier=Modifier.fillMaxWidth()){Text("⚑ اعلام فرار و پایان شب")}
-       OutlinedButton({atHideout=false;screen="detective"},Modifier.fillMaxWidth()){Text("اعلام نکن — ادامه بازی")}}}
-      Text("تاریخچه مخفی حرکت‌ها",color=Gold)
-      LazyColumn(Modifier.weight(1f)){items(moves.filter{it.night==night}.reversed()){Text("#${it.turn} • ${it.location} • ${it.type.name}")}}
-      if(!atHideout)VictorianButton("🔒 پایان نوبت و تحویل به کارآگاه‌ها"){screen="detective"}}
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        setContent { WhitechapelUi() }
     }
-    "escaped"->{Text("پایان Night $night",color=Gold,style=MaterialTheme.typography.headlineSmall);Card(colors=CardDefaults.cardColors(containerColor=Green),modifier=Modifier.fillMaxWidth()){Text("✓ فرار Jack توسط برنامه تأیید شد.",Modifier.padding(18.dp),fontWeight=FontWeight.Bold)}
-     Text("مسیر و محل مخفیگاه همچنان محرمانه‌اند.");VictorianButton("شروع شب بعد"){night++;persist();screen="unlock"}}
-    "detective"->{var q by remember{mutableStateOf("")};var result by remember{mutableStateOf("اطلاعات محرمانه Jack نمایش داده نمی‌شود.")}
-     Text("حالت کارآگاه‌ها • Night $night",color=Gold,style=MaterialTheme.typography.titleLarge)
-     OutlinedTextField(q,{q=it.filter(Char::isDigit).take(3)},leadingIcon={Text("⌕")},label={Text("شماره خانه")},modifier=Modifier.fillMaxWidth())
-     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button({val x=q.toIntOrNull();if(x in 1..195){val ok=starts[night]==x||moves.any{it.night==night&&it.location==x};queries+=Inquiry(night,queries.count{it.night==night}+1,QueryType.SEARCH,x!!,ok);persist();result=if(ok)"✓ سرنخ پیدا شد: $x" else "✗ سرنخی نیست: $x"}},colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF135A91))){Text("⌕ جستجو")}
-      Button({val x=q.toIntOrNull();if(x in 1..195){val cur=moves.lastOrNull{it.night==night}?.location?:starts[night];val ok=cur==x;queries+=Inquiry(night,queries.count{it.night==night}+1,QueryType.ARREST,x!!,ok);persist();result=if(ok)"✓ دستگیری موفق: $x" else "✗ دستگیری ناموفق: $x"}},colors=ButtonDefaults.buttonColors(containerColor=Blood)){Text("⛓ دستگیری")}}
-     ParchmentCard{Text(result,fontWeight=FontWeight.Bold)}
-     Text("تاریخچه استعلام‌های این شب",color=Gold)
-     LazyColumn(Modifier.weight(1f)){items(queries.filter{it.night==night}.reversed()){i->Text("#${i.index} • ${i.type.name} • ${i.location} • ${if(i.success)"✓ مثبت" else "✗ منفی"}")}}
-     VictorianButton("🔐 نوبت Jack"){screen="unlock"}}
-    "unlock"->{var err by remember{mutableStateOf("")};Text("ورود محرمانه Jack",color=Gold)
-     OutlinedTextField(pin,{pin=it.filter(Char::isDigit).take(6)},leadingIcon={Text("🔒")},label={Text("PIN")},visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
-     if(err.isNotEmpty())Text(err,color=Color.Red);RedButton("باز کردن دفترچه"){if(Store.hash(pin)==pinHash){pin="";screen="jack"}else err="PIN اشتباه است."};VictorianButton("بازگشت"){screen="detective"}}
-    "audit"->{Text("GAME AUDIT / REVEAL",color=Gold,style=MaterialTheme.typography.headlineSmall);ParchmentCard{Text("⌂ Hideout: $hideout",fontWeight=FontWeight.Bold)}
-     LazyColumn(Modifier.weight(1f)){for(n in 1..4){item{Text("Night $n • Start ${starts[n]?:"-"} • ${if(ended.contains(n))"✓ Escape verified" else "—"}",color=Gold,fontWeight=FontWeight.Bold)}
-      items(moves.filter{it.night==n}){Text("  Move ${it.turn}: ${it.location} • ${it.type.name}")};items(queries.filter{it.night==n}){Text("  ${it.type.name} ${it.location}: ${if(it.success)"✓" else "✗"}")}}}
-     RedButton("پایان و پاک کردن بازی"){store.clear();screen="home"}}
-   }
-  }}
- }
 }
 
-@Composable fun Splash(){Box(Modifier.fillMaxSize()){Image(painterResource(R.drawable.whitechapel_splash),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop);Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black.copy(alpha=.85f)))));Column(Modifier.align(Alignment.BottomCenter).padding(30.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("LETTERS FROM",color=Parchment);Text("WHITECHAPEL",color=Color(0xFFCE2020),style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold);Text("GAME COMPANION",color=Gold);Spacer(Modifier.height(28.dp));LinearProgressIndicator(Modifier.fillMaxWidth(),color=Blood)}}}
-@Composable fun VictorianButton(text:String,onClick:()->Unit){Button(onClick,Modifier.fillMaxWidth().height(56.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.buttonColors(containerColor=Panel,contentColor=Gold)){Text(text,fontWeight=FontWeight.Bold)}}
-@Composable fun RedButton(text:String,onClick:()->Unit){Button(onClick,Modifier.fillMaxWidth().height(56.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.buttonColors(containerColor=Blood)){Text(text,fontWeight=FontWeight.Bold)}}
-@Composable fun ParchmentCard(content:@Composable ColumnScope.()->Unit){Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp),colors=CardDefaults.cardColors(containerColor=Parchment,contentColor=Color(0xFF21170F))){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp),content=content)}}
+@Composable
+fun WhitechapelUi() {
+    var page by remember { mutableStateOf("splash") }
+    MaterialTheme(colorScheme = darkColorScheme(primary = Gold, surface = Ink)) {
+        when (page) {
+            "splash" -> Splash { page = "home" }
+            "home" -> Home(onNewGame = { page = "newgame" })
+            "newgame" -> NewGame(onBack = { page = "home" })
+        }
+    }
+}
+
+@Composable
+private fun Splash(onDone: () -> Unit) {
+    var started by remember { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (started) 1f else 0f,
+        animationSpec = tween(5000),
+        label = "loading"
+    )
+    LaunchedEffect(Unit) {
+        started = true
+        delay(5100)
+        onDone()
+    }
+    Box(Modifier.fillMaxSize()) {
+        Image(
+            painterResource(R.drawable.splash),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Column(
+            Modifier.align(Alignment.BottomCenter).padding(horizontal = 44.dp, vertical = 46.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                Modifier.fillMaxWidth().height(12.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.Black.copy(alpha=.72f))
+                    .border(1.dp, Gold, RoundedCornerShape(20.dp))
+                    .padding(2.dp)
+            ) {
+                Box(
+                    Modifier.fillMaxHeight().fillMaxWidth(progress)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Brush.horizontalGradient(listOf(BloodDark, Color.Red)))
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("Preparing the streets of Whitechapel...", color = Gold, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+private fun Home(onNewGame: () -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        Image(
+            painterResource(R.drawable.home_background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha=.12f)))
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 34.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.weight(.40f))
+            MenuButton("▶", "شروع بازی جدید", "New Game", true, onNewGame)
+            Spacer(Modifier.height(13.dp))
+            MenuButton("▰", "ادامه بازی", "Continue", false) {}
+            Spacer(Modifier.height(13.dp))
+            MenuButton("▤", "راهنما", "How to Play", false) {}
+            Spacer(Modifier.height(13.dp))
+            MenuButton("⚙", "تنظیمات", "Settings", false) {}
+            Spacer(Modifier.weight(.18f))
+        }
+    }
+}
+
+@Composable
+private fun MenuButton(icon:String, fa:String, en:String, enabled:Boolean, onClick:()->Unit) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().height(70.dp).border(1.dp, Gold, RoundedCornerShape(9.dp)),
+        shape = RoundedCornerShape(9.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xE91A1510),
+            contentColor = Gold,
+            disabledContainerColor = Color(0xD915120F),
+            disabledContentColor = Gold.copy(alpha=.70f)
+        ),
+        contentPadding = PaddingValues(horizontal = 18.dp)
+    ) {
+        Text(icon, fontSize = 29.sp)
+        Spacer(Modifier.width(18.dp))
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+            Text(fa, color = Color(0xFFF2DFC0), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(en, color = Gold, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun NewGame(onBack:()->Unit) {
+    var hideout by remember { mutableStateOf("") }
+    var pin by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    val valid = hideout.toIntOrNull() in 1..195 && pin.length in 4..6 && pin == confirm
+
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF071016), Color(0xFF11100D))))) {
+        Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onBack, contentPadding = PaddingValues(0.dp)) { Text("‹", color=Color.White, fontSize=42.sp) }
+                Column(Modifier.weight(1f), horizontalAlignment=Alignment.CenterHorizontally) {
+                    Text("شروع بازی جدید", color=Color.White, fontSize=22.sp, fontWeight=FontWeight.Bold)
+                    Text("New Game Setup", color=Color(0xFFB7A58D), fontSize=14.sp)
+                }
+                Spacer(Modifier.width(42.dp))
+            }
+
+            PaperCard {
+                Row(verticalAlignment=Alignment.Top) {
+                    Text("⌂", fontSize=46.sp, color=Brown)
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text("انتخاب مخفیگاه", fontSize=20.sp, fontWeight=FontWeight.Bold, color=Ink)
+                        Text("شماره مخفیگاه را وارد کنید\n(۱ تا ۱۹۵)", color=Ink, textAlign=TextAlign.Center)
+                    }
+                }
+                OutlinedTextField(
+                    hideout, { hideout=it.filter(Char::isDigit).take(3) },
+                    leadingIcon={Text("⌂",fontSize=24.sp)},
+                    label={Text("شماره مخفیگاه")},
+                    keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
+                    modifier=Modifier.fillMaxWidth(),
+                    singleLine=true
+                )
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Text("🔒", fontSize=23.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Text("مخفیگاه برای کل بازی ثابت می‌ماند\nو قابل تغییر نیست.", color=Ink, fontSize=13.sp)
+                }
+            }
+
+            PaperCard {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Text("🔐", fontSize=36.sp)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("تعیین PIN جک", fontSize=20.sp, fontWeight=FontWeight.Bold, color=Ink)
+                        Text("یک رمز ۴ تا ۶ رقمی تعیین کنید", color=Ink, fontSize=13.sp)
+                    }
+                }
+                OutlinedTextField(
+                    pin,{pin=it.filter(Char::isDigit).take(6)},
+                    label={Text("PIN")},
+                    visualTransformation=PasswordVisualTransformation(),
+                    keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword),
+                    modifier=Modifier.fillMaxWidth(),singleLine=true
+                )
+                OutlinedTextField(
+                    confirm,{confirm=it.filter(Char::isDigit).take(6)},
+                    label={Text("تکرار PIN")},
+                    visualTransformation=PasswordVisualTransformation(),
+                    keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword),
+                    modifier=Modifier.fillMaxWidth(),singleLine=true
+                )
+                if(confirm.isNotEmpty() && pin != confirm) Text("PINها یکسان نیستند.", color=Blood, fontSize=12.sp)
+            }
+
+            Button(
+                onClick = {},
+                enabled = valid,
+                modifier=Modifier.fillMaxWidth().height(62.dp).border(1.dp,Gold,RoundedCornerShape(9.dp)),
+                shape=RoundedCornerShape(9.dp),
+                colors=ButtonDefaults.buttonColors(
+                    containerColor=Blood,
+                    disabledContainerColor=Color(0xFF551515),
+                    contentColor=Color.White,
+                    disabledContentColor=Color.Gray
+                )
+            ) { Text("▶   شروع بازی", fontSize=20.sp, fontWeight=FontWeight.Bold) }
+
+            Text(
+                "در این مرحله فقط رابط کاربری آماده شده و دکمه شروع بازی هنوز وارد منطق بازی نمی‌شود.",
+                color=Color(0xFF8E8375),fontSize=11.sp,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun PaperCard(content:@Composable ColumnScope.()->Unit) {
+    Card(
+        modifier=Modifier.fillMaxWidth(),
+        shape=RoundedCornerShape(12.dp),
+        colors=CardDefaults.cardColors(containerColor=Parchment,contentColor=Ink)
+    ) {
+        Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)
+    }
+}
