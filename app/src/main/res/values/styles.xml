@@ -1,8 +1,7 @@
 <resources>
-    <style name="Theme.WhitechapelJack" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">serif</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#17120E</item>
-        <item name="android:navigationBarColor">#17120E</item>
-    </style>
+ <style name="Theme.WhitechapelJack" parent="android:style/Theme.Material.NoActionBar">
+  <item name="android:fontFamily">serif</item>
+  <item name="android:statusBarColor">#17120E</item>
+  <item name="android:navigationBarColor">#17120E</item>
+ </style>
 </resources>

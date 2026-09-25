@@ -1,30 +1,15 @@
 # Whitechapel Jack
 
-Offline Android companion for the Jack player in a hidden-movement game inspired by
-Letters from Whitechapel.
+Android app built automatically by GitHub Actions.
 
-## MVP
-- Jack PIN
-- Secret hideout
-- Night 1–4 state
-- Normal / Coach / Alley move logging
-- Secure-screen flag (blocks screenshots on supported Android devices)
-- Detective-only clue lookup
-- Detective arrest check
-- No Internet permission
+## Get the APK
+1. Copy all files from this ZIP into the root of a GitHub repository.
+2. Commit/push to `main`.
+3. Open the repository **Actions** tab.
+4. Open **Build Android APK**.
+5. After the green build finishes, download artifact **WhitechapelJack-debug-apk**.
+6. Extract it to get `app-debug.apk`.
 
-## Build
-Open the project in a current Android Studio, let Gradle sync, then run the `app` configuration.
+No Android Studio is required to build the APK.
 
-## Important rule note
-This is an MVP rules assistant, not yet a complete digital implementation of every
-Letters from Whitechapel rule. It records locations and answers clue/arrest queries
-from the secret log. Map adjacency, legal Coach/Alley validation, special movement
-limits, murder timing, police placement, and all optional rules still need to be
-implemented/verified against the rulebook.
-
-## Data note
-Version 0.1 keeps game state in memory. Closing/killing the app clears the session.
-Persistent encrypted storage is a planned next step.
-
-This is an unofficial fan-made companion and contains no original board artwork.
+Movement validation is intentionally disabled in this version.
