@@ -1,15 +1,15 @@
-# Whitechapel Jack
+# Whitechapel Jack v3
+GitHub-ready Android app. Push contents to repo root; Actions builds the debug APK.
 
-Android app built automatically by GitHub Actions.
+v3:
+- Hideout fixed for entire game (1..195)
+- Crime Scene/start per night
+- Normal/Alley/Coach (Coach stores two destinations)
+- Auto-detect Hideout only after NORMAL move
+- Verified escape screen shown to detectives without revealing route/hideout
+- Per-night Search/Arrest history
+- End-game GAME AUDIT reveals Hideout, all routes and all inquiries
+- Local persistence, PIN lock, FLAG_SECURE
+- Map adjacency validation intentionally disabled
 
-## Get the APK
-1. Copy all files from this ZIP into the root of a GitHub repository.
-2. Commit/push to `main`.
-3. Open the repository **Actions** tab.
-4. Open **Build Android APK**.
-5. After the green build finishes, download artifact **WhitechapelJack-debug-apk**.
-6. Extract it to get `app-debug.apk`.
-
-No Android Studio is required to build the APK.
-
-Movement validation is intentionally disabled in this version.
+APK: Actions > Build Android APK > Artifacts > WhitechapelJack-debug-apk
