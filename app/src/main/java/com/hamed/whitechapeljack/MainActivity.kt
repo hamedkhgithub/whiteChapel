@@ -199,7 +199,7 @@ class MainActivity:ComponentActivity(){
  var startText by remember(night){mutableStateOf(if(night==3)(start?.let{""}?:"") else (start?.toString()?:""))}
  var secondCrime by remember(night){mutableStateOf("")}
  var type by remember{mutableStateOf(MoveType.NORMAL)};var d1 by remember{mutableStateOf("")};var d2 by remember{mutableStateOf("")}
- var hideoutPopup by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")}
+ var hideoutPopup by remember{mutableStateOf(false)};var hideoutVisible by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")}
  var undoTarget by remember{mutableStateOf<JackMove?>(null)}
  var moveMadeThisTurn by remember(night){mutableStateOf(false)}
  val coachMax=listOf(0,3,2,2,1)[night];val alleyMax=listOf(0,2,2,1,1)[night]
@@ -209,7 +209,18 @@ class MainActivity:ComponentActivity(){
  val trackUsed: Int = nightMoves.fold(doubleEventCost) { total, move -> total + if (move.type == MoveType.COACH) 2 else 1 }
  Background{
   Column(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
-   SimpleTitle("حرکت‌های جک","Jack's Movement • شب $night")
+   Box(Modifier.fillMaxWidth()){
+    SimpleTitle("حرکت‌های جک","Jack's Movement • شب $night")
+    Row(
+     Modifier.align(Alignment.TopEnd).background(Color(0xCC11100E),RoundedCornerShape(8.dp)).border(1.dp,Gold.copy(alpha=.65f),RoundedCornerShape(8.dp)).padding(start=9.dp,end=4.dp),
+     verticalAlignment=Alignment.CenterVertically
+    ){
+     Text(if(hideoutVisible)hideout.toString() else "•••",color=Gold,fontWeight=FontWeight.Bold,fontSize=15.sp)
+     IconButton(onClick={hideoutVisible=!hideoutVisible},modifier=Modifier.size(34.dp)){
+      Text(if(hideoutVisible)"◉" else "◎",color=Gold,fontSize=20.sp)
+     }
+    }
+   }
    GrayCard{
     Text(if(night==3)"محل‌های ارتکاب قتل (Double Event)" else "محل ارتکاب قتل",color=Color.Black,fontWeight=FontWeight.Bold,fontSize=18.sp)
     if(night==3 && start==null){
