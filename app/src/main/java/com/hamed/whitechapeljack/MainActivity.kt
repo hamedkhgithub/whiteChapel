@@ -92,11 +92,11 @@ class PilotMapServer(context: Context) {
         val reader=c.getInputStream().bufferedReader()
         val requestLine=reader.readLine().orEmpty()
         while(true){ val line=reader.readLine()?:break; if(line.isBlank())break }
-        val path=requestLine.split(" ").getOrNull(1) ?: "/"
-        val (bytes,contentType)=if(path=="/map.webp"){
+        val path=(requestLine.split(" ").getOrNull(1) ?: "/").substringBefore("?")
+        val (bytes,contentType)=if(path=="/map.webp" || path=="/map"){
          appContext.assets.open("whitechapel_map.webp").use{it.readBytes()} to "image/webp"
         }else{
-         val body="""<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes\"><title>Whitechapel Map</title><style>html,body{margin:0;width:100%;height:100%;background:#090807;overflow:auto}body{display:flex;align-items:center;justify-content:center}.map{display:block;max-width:100%;max-height:100vh;width:auto;height:auto;object-fit:contain;box-shadow:0 0 40px #000} @media (max-aspect-ratio: 3/2){.map{max-width:none;width:100%;height:auto;max-height:none}}</style></head><body><img class=\"map\" src=\"/map.webp\" alt=\"Whitechapel game map\"></body></html>"""
+         val body="""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes"><title>Whitechapel Map</title><style>html,body{margin:0;width:100%;height:100%;background:#090807;overflow:auto}body{display:flex;align-items:center;justify-content:center}.map{display:block;max-width:100%;max-height:100vh;width:auto;height:auto;object-fit:contain;box-shadow:0 0 40px #000}@media (max-aspect-ratio:3/2){.map{max-width:none;width:100%;height:auto;max-height:none}}</style></head><body><img class="map" src="/map.webp" alt="Whitechapel game map"></body></html>"""
          body.toByteArray(Charsets.UTF_8) to "text/html; charset=utf-8"
         }
         val header="HTTP/1.1 200 OK\r\nContent-Type: $contentType\r\nContent-Length: ${bytes.size}\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n"
