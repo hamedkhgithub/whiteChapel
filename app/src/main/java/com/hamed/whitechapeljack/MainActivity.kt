@@ -109,13 +109,12 @@ class PilotMapServer(context: Context) {
    "/controller"->{bytes=controllerHtml().toByteArray();contentType="text/html; charset=utf-8"}
    else->{bytes=displayHtml().toByteArray();contentType="text/html; charset=utf-8"}
   }
-  val header="HTTP/1.1 200 OK
-Content-Type: $contentType
-Content-Length: ${bytes.size}
-Cache-Control: no-cache
-Connection: close
-
-";c.getOutputStream().apply{write(header.toByteArray());write(bytes);flush()}
+  val header="HTTP/1.1 200 OK\r\n" +
+   "Content-Type: $contentType\r\n" +
+   "Content-Length: ${bytes.size}\r\n" +
+   "Cache-Control: no-cache\r\n" +
+   "Connection: close\r\n\r\n"
+  c.getOutputStream().apply{write(header.toByteArray());write(bytes);flush()}
  }
  private fun stateJson():String{val p=policePositions.entries.joinToString(","){"\"${it.key}\":\"${it.value}\""};val cs=clues.sorted().joinToString(",");val rr=revealRoute.joinToString(",");return "{\"police\":{$p},\"clues\":[$cs],\"gameOver\":$arrested,\"route\":[$rr]}"}
  private fun displayHtml()="""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#090807;width:100%;height:100%;overflow:hidden}#wrap{position:relative;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}#map{max-width:100%;max-height:100%;display:block}.p{position:absolute;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px #000;transform:translate(-50%,-50%);z-index:5}.red{background:#d32222}.blue{background:#1976d2}.green{background:#16813b}.yellow{background:#f0c51a}.brown{background:#5b3020}.clue{position:absolute;width:14px;height:14px;border-radius:50%;background:#ffd54f;border:2px solid #5a3700;transform:translate(-50%,-50%);z-index:4}.route{position:absolute;width:13px;height:13px;border-radius:50%;background:#b41616;border:2px solid white;transform:translate(-50%,-50%);z-index:6}#over{display:none;position:fixed;inset:0;background:#090807dd;color:#e6c47b;z-index:20;text-align:center;padding-top:8vh;font:700 30px sans-serif}</style></head><body><div id="wrap"><img id="map" src="/map.webp"></div><div id="over">جک دستگیر شد<br><small>مسیر حرکت جک روی نقشه نمایش داده شده است</small></div><script>
