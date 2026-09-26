@@ -63,3 +63,12 @@ Not yet implemented: board adjacency/map validation and full Hell-phase setup au
 - Popup when the 15-space movement allowance is exhausted before reaching the hideout: detectives win.
 - Popup when جک reaches and declares the hideout on Night 4: جک wins.
 - Visible English `Jack` labels were changed to `جک` for cleaner RTL display.
+
+## v2 Pilot — Local Map Mode
+- Keeps the v1.3.5 classic game flow unchanged.
+- Adds «شروع بازی جدید با نقشه» directly below New Game.
+- Starts a tiny local HTTP server on port 8080 on the Android host.
+- Shows the local URL and a copy button.
+- Another device on the same Wi-Fi/hotspot can open the URL in a browser.
+- Pilot web page displays «به بازی جدید خوش آمدید».
+- This pilot intentionally does not yet include the real map, WebSocket sync, move validation, or role clients.

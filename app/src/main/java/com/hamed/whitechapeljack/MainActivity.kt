@@ -2,6 +2,8 @@ package com.hamed.whitechapeljack
 
 import android.content.Context
 import android.os.Bundle
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -34,6 +36,10 @@ import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
+import java.net.Inet4Address
+import java.net.NetworkInterface
+import java.net.ServerSocket
+import kotlin.concurrent.thread
 
 private val Gold=Color(0xFFD6AD63)
 private val Blood=Color(0xFFB41616)
@@ -66,6 +72,48 @@ class GameStore(ctx:Context){
  companion object{fun hash(v:String)=MessageDigest.getInstance("SHA-256").digest(v.toByteArray()).joinToString(""){"%02x".format(it)}}
 }
 
+
+class PilotMapServer {
+ @Volatile private var running=false
+ private var socket:ServerSocket?=null
+ val port=8080
+
+ fun start():String {
+  if(!running){
+   running=true
+   thread(name="whitechapel-pilot-server",isDaemon=true){
+    try{
+     socket=ServerSocket(port)
+     while(running){
+      val client=socket?.accept()?:break
+      client.use { c ->
+       runCatching{
+        val reader=c.getInputStream().bufferedReader()
+        while(true){ val line=reader.readLine()?:break; if(line.isBlank())break }
+        val body="""<!doctype html><html lang=\"fa\" dir=\"rtl\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Whitechapel Pilot</title><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;background:#090807;color:#d6ad63;font-family:Arial,sans-serif}.card{border:1px solid #d6ad63;padding:48px;border-radius:18px;background:#15110e;text-align:center;box-shadow:0 20px 70px #000}.card h1{font-size:42px;margin:0 0 16px}.card p{color:#ddd;font-size:22px}</style></head><body><div class=\"card\"><h1>به بازی جدید خوش آمدید</h1><p>Whitechapel Map Mode — Pilot</p></div></body></html>"""
+        val bytes=body.toByteArray(Charsets.UTF_8)
+        val header="HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
+        c.getOutputStream().apply{write(header.toByteArray());write(bytes);flush()}
+       }
+      }
+     }
+    }catch(_:Exception){} finally{running=false;runCatching{socket?.close()};socket=null}
+   }
+  }
+  return "http://${localIpv4()}:$port"
+ }
+ fun stop(){running=false;runCatching{socket?.close()};socket=null}
+ private fun localIpv4():String {
+  return runCatching {
+   NetworkInterface.getNetworkInterfaces().toList()
+    .flatMap{it.inetAddresses.toList()}
+    .filterIsInstance<Inet4Address>()
+    .firstOrNull{!it.isLoopbackAddress && it.isSiteLocalAddress}
+    ?.hostAddress ?: "127.0.0.1"
+  }.getOrDefault("127.0.0.1")
+ }
+}
+
 class MainActivity:ComponentActivity(){
  override fun onCreate(savedInstanceState:Bundle?){
   super.onCreate(savedInstanceState)
@@ -75,6 +123,9 @@ class MainActivity:ComponentActivity(){
 }
 
 @Composable fun WhitechapelApp(store:GameStore){
+ val context=androidx.compose.ui.platform.LocalContext.current
+ val pilotServer=remember{PilotMapServer()}
+ var pilotUrl by remember{mutableStateOf("")}
  var page by remember{mutableStateOf("splash")}
  var pinHash by remember{mutableStateOf("")};var hideout by remember{mutableIntStateOf(0)};var night by remember{mutableIntStateOf(1)}
  var gameOver by remember{mutableStateOf(false)}
@@ -97,6 +148,7 @@ class MainActivity:ComponentActivity(){
  BackHandler(enabled=page!="splash"){
   when(page){
    "newgame"->page="home"
+   "mapserver"->page="home"
    "jack"-> { save(); page="detective" } // never expose Jack screen after leaving it
    "detective"-> save() // consume system Back: stay in game
    "unlock"->page="detective"
@@ -108,7 +160,11 @@ class MainActivity:ComponentActivity(){
  MaterialTheme(colorScheme=darkColorScheme(primary=Gold,surface=Ink)){
   when(page){
    "splash"->Splash{page="home"}
-   "home"->Home(store.exists(),onNewGame={page="newgame"},onContinue={if(load())page=if(gameOver)"audit" else "detective"})
+   "home"->Home(store.exists(),onNewGame={page="newgame"},onMapGame={pilotUrl=pilotServer.start();page="mapserver"},onContinue={if(load())page=if(gameOver)"audit" else "detective"})
+   "mapserver"->MapServerPage(pilotUrl,onBack={page="home"},onCopy={
+    val cb=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    cb.setPrimaryClip(ClipData.newPlainText("Whitechapel server",pilotUrl))
+   })
    "newgame"->NewGame(onBack={page="home"}){h,p->hideout=h;pinHash=GameStore.hash(p);night=1;gameOver=false;starts.clear();moves.clear();queries.clear();escaped.clear();save();page="jack"}
    "jack"->JackPage(night,hideout,starts[night],moves.filter{it.night==night},
     onSetStart={first,second->
@@ -157,16 +213,37 @@ class MainActivity:ComponentActivity(){
  }
 }
 
-@Composable private fun Home(hasGame:Boolean,onNewGame:()->Unit,onContinue:()->Unit){
+@Composable private fun Home(hasGame:Boolean,onNewGame:()->Unit,onMapGame:()->Unit,onContinue:()->Unit){
  Box(Modifier.fillMaxSize()){
   Image(painterResource(R.drawable.home_background),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
   Box(Modifier.fillMaxSize().background(Color.Black.copy(.12f)))
   Column(Modifier.fillMaxSize().padding(horizontal=34.dp),horizontalAlignment=Alignment.CenterHorizontally){
    Spacer(Modifier.weight(.40f))
    MenuButton("▶","شروع بازی جدید","New Game",true,onNewGame);Spacer(Modifier.height(13.dp))
+   MenuButton("⌘","شروع بازی جدید با نقشه","Map Mode • Pilot",true,onMapGame);Spacer(Modifier.height(13.dp))
    MenuButton("▰","ادامه بازی","Continue",hasGame,onContinue);Spacer(Modifier.height(13.dp))
    MenuButton("▤","راهنما","How to Play",false){};Spacer(Modifier.height(13.dp))
    MenuButton("⚙","تنظیمات","Settings",false){};Spacer(Modifier.weight(.18f))
+  }
+ }
+}
+
+@Composable private fun MapServerPage(url:String,onBack:()->Unit,onCopy:()->Unit){
+ Background{
+  Column(Modifier.fillMaxSize().padding(18.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
+   Header("بازی با نقشه","Map Mode • Pilot",onBack,true)
+   GrayCard{
+    Text("سرور آزمایشی فعال است",fontSize=21.sp,fontWeight=FontWeight.Bold,color=Color.Black)
+    Spacer(Modifier.height(8.dp))
+    Text("دستگاه دیگر را به همان Wi-Fi یا Hotspot وصل کنید و این آدرس را در مرورگر وارد کنید:",color=Color.Black,fontSize=14.sp)
+    Spacer(Modifier.height(12.dp))
+    Text(url,color=Color(0xFF5E130D),fontSize=18.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
+    Spacer(Modifier.height(12.dp))
+    Button(onClick=onCopy,modifier=Modifier.fillMaxWidth()){Text("کپی لینک")}
+   }
+   GrayCard{
+    Text("در این پایلوت، صفحه وب فقط یک نمونه اتصال است و متن «به بازی جدید خوش آمدید» را نمایش می‌دهد.",color=Color.Black,fontSize=14.sp)
+   }
   }
  }
 }
