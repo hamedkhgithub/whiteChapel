@@ -72,3 +72,6 @@ Not yet implemented: board adjacency/map validation and full Hell-phase setup au
 - Another device on the same Wi-Fi/hotspot can open the URL in a browser.
 - Pilot web page displays «به بازی جدید خوش آمدید».
 - This pilot intentionally does not yet include the real map, WebSocket sync, move validation, or role clients.
+
+## Map display pilot update
+The local map-mode HTTP server now serves `app/src/main/assets/whitechapel_map.webp` at `/map.webp` and displays it full-screen/responsively on the browser page. No board-position extraction, move validation, or live piece synchronization is included in this step.

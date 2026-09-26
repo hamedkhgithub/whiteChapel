@@ -73,7 +73,8 @@ class GameStore(ctx:Context){
 }
 
 
-class PilotMapServer {
+class PilotMapServer(context: Context) {
+ private val appContext=context.applicationContext
  @Volatile private var running=false
  private var socket:ServerSocket?=null
  val port=8080
@@ -89,10 +90,16 @@ class PilotMapServer {
       client.use { c ->
        runCatching{
         val reader=c.getInputStream().bufferedReader()
+        val requestLine=reader.readLine().orEmpty()
         while(true){ val line=reader.readLine()?:break; if(line.isBlank())break }
-        val body="""<!doctype html><html lang=\"fa\" dir=\"rtl\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Whitechapel Pilot</title><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;background:#090807;color:#d6ad63;font-family:Arial,sans-serif}.card{border:1px solid #d6ad63;padding:48px;border-radius:18px;background:#15110e;text-align:center;box-shadow:0 20px 70px #000}.card h1{font-size:42px;margin:0 0 16px}.card p{color:#ddd;font-size:22px}</style></head><body><div class=\"card\"><h1>به بازی جدید خوش آمدید</h1><p>Whitechapel Map Mode — Pilot</p></div></body></html>"""
-        val bytes=body.toByteArray(Charsets.UTF_8)
-        val header="HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
+        val path=requestLine.split(" ").getOrNull(1) ?: "/"
+        val (bytes,contentType)=if(path=="/map.webp"){
+         appContext.assets.open("whitechapel_map.webp").use{it.readBytes()} to "image/webp"
+        }else{
+         val body="""<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes\"><title>Whitechapel Map</title><style>html,body{margin:0;width:100%;height:100%;background:#090807;overflow:auto}body{display:flex;align-items:center;justify-content:center}.map{display:block;max-width:100%;max-height:100vh;width:auto;height:auto;object-fit:contain;box-shadow:0 0 40px #000} @media (max-aspect-ratio: 3/2){.map{max-width:none;width:100%;height:auto;max-height:none}}</style></head><body><img class=\"map\" src=\"/map.webp\" alt=\"Whitechapel game map\"></body></html>"""
+         body.toByteArray(Charsets.UTF_8) to "text/html; charset=utf-8"
+        }
+        val header="HTTP/1.1 200 OK\r\nContent-Type: $contentType\r\nContent-Length: ${bytes.size}\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n"
         c.getOutputStream().apply{write(header.toByteArray());write(bytes);flush()}
        }
       }
@@ -124,7 +131,7 @@ class MainActivity:ComponentActivity(){
 
 @Composable fun WhitechapelApp(store:GameStore){
  val context=androidx.compose.ui.platform.LocalContext.current
- val pilotServer=remember{PilotMapServer()}
+ val pilotServer=remember{PilotMapServer(context)}
  var pilotUrl by remember{mutableStateOf("")}
  var page by remember{mutableStateOf("splash")}
  var pinHash by remember{mutableStateOf("")};var hideout by remember{mutableIntStateOf(0)};var night by remember{mutableIntStateOf(1)}
@@ -242,7 +249,7 @@ class MainActivity:ComponentActivity(){
     Button(onClick=onCopy,modifier=Modifier.fillMaxWidth()){Text("کپی لینک")}
    }
    GrayCard{
-    Text("در این پایلوت، صفحه وب فقط یک نمونه اتصال است و متن «به بازی جدید خوش آمدید» را نمایش می‌دهد.",color=Color.Black,fontSize=14.sp)
+    Text("در این پایلوت، نقشه بازی به‌صورت تمام‌صفحه روی مرورگر دستگاه متصل نمایش داده می‌شود.",color=Color.Black,fontSize=14.sp)
    }
   }
  }
