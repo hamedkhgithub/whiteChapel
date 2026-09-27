@@ -122,7 +122,7 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 <div id="legend">پلیس/قربانی‌های Hell تا زمان Reveal بدون رنگ واقعی نمایش داده می‌شوند.</div>
 <script>
 const stage=document.getElementById('stage'),base=document.getElementById('base'),marks=document.getElementById('marks'),wrap=document.getElementById('wrap');let z=1,ox=0,oy=0;
-function fit(){const w=base.naturalWidth||1536,h=base.naturalHeight||1024;z=Math.min(wrap.clientWidth/w,wrap.clientHeight/h);ox=(wrap.clientWidth-w*z)/2;oy=(wrap.clientHeight-h*z)/2;apply()}function apply(){stage.style.transform=`translate(${ox}px,${oy}px) scale(${z})`}
+function fit(){const w=base.naturalWidth||1536,h=base.naturalHeight||1024;z=Math.min(wrap.clientWidth/w,wrap.clientHeight/h);ox=(wrap.clientWidth-w*z)/2;oy=(wrap.clientHeight-h*z)/2;apply()}function apply(){stage.style.transform=`translate(${'$'}{ox}px,${'$'}{oy}px) scale(${'$'}{z})`}
 base.onload=fit;addEventListener('resize',fit);
 function mk(cls,x,y,text,color){let e=document.createElement('div');e.className='marker '+cls;e.style.left=(x*100)+'%';e.style.top=(y*100)+'%';if(color)e.style.background=color;e.textContent=text||'';marks.appendChild(e)}
 async function refresh(){try{const s=await fetch('/state?'+Date.now(),{cache:'no-store'}).then(r=>r.json());marks.innerHTML='';
