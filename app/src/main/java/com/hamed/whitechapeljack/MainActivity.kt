@@ -1,6 +1,7 @@
 package com.hamed.whitechapeljack
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -13,8 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -37,6 +39,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -45,6 +49,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
 import kotlin.math.sqrt
+import kotlin.math.roundToInt
 
 private val Gold = Color(0xFFD6AD63)
 private val Blood = Color(0xFFB41616)
@@ -390,7 +395,7 @@ private fun NewGame(onBack: () -> Unit, onStart: (Int, String) -> Unit) {
                     Button(
                         onClick = { showHideoutPicker = true },
                         modifier = Modifier.height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBDBDBB), contentColor = Color.Black)
                     ) { Text("نقشه", fontWeight = FontWeight.Bold) }
                 }
                 Text("🔒  مخفیگاه برای کل بازی ثابت می‌ماند و قابل تغییر نیست.", color = Color.Black, fontSize = 13.sp)
@@ -477,12 +482,12 @@ private fun JackPage(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.weight(1f)) { DarkField(startText, { startText = it.filter(Char::isDigit).take(3) }, "قتل اول", "⌖", KeyboardType.Number) }
                         Spacer(Modifier.width(8.dp))
-                        Button(onClick = { showStartPicker = true }, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Blue)) { Text("نقشه") }
+                        Button(onClick = { showStartPicker = true }, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBDBDBB), contentColor = Color.Black)) { Text("نقشه") }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.weight(1f)) { DarkField(secondCrime, { secondCrime = it.filter(Char::isDigit).take(3) }, "قتل دوم / شروع فرار", "⌖", KeyboardType.Number) }
                         Spacer(Modifier.width(8.dp))
-                        Button(onClick = { showSecondCrimePicker = true }, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Blue)) { Text("نقشه") }
+                        Button(onClick = { showSecondCrimePicker = true }, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBDBDBB), contentColor = Color.Black)) { Text("نقشه") }
                     }
                     Button(
                         onClick = {
@@ -504,7 +509,7 @@ private fun JackPage(
                             )
                         }
                         Spacer(Modifier.width(8.dp))
-                        Button(onClick = { showStartPicker = true }, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Blue)) { Text("نقشه") }
+                        Button(onClick = { showStartPicker = true }, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBDBDBB), contentColor = Color.Black)) { Text("نقشه") }
                         Spacer(Modifier.width(8.dp))
                         Button(
                             onClick = { startText.toIntOrNull()?.takeIf { it in 1..195 }?.let { onSetStart(it, null) } },
@@ -537,13 +542,13 @@ private fun JackPage(
                             DarkField(d1, { if (!moveMadeThisTurn) d1 = it.filter(Char::isDigit).take(3) }, if (type == MoveType.COACH) "مقصد اول درشکه" else "خانه مقصد", "⌖", KeyboardType.Number)
                         }
                         Spacer(Modifier.width(8.dp))
-                        Button(onClick = { showFirstMovePicker = true }, enabled = !moveMadeThisTurn, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Blue)) { Text("نقشه") }
+                        Button(onClick = { showFirstMovePicker = true }, enabled = !moveMadeThisTurn, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBDBDBB), contentColor = Color.Black)) { Text("نقشه") }
                     }
                     if (type == MoveType.COACH) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.weight(1f)) { DarkField(d2, { if (!moveMadeThisTurn) d2 = it.filter(Char::isDigit).take(3) }, "مقصد دوم درشکه", "⌖", KeyboardType.Number) }
                             Spacer(Modifier.width(8.dp))
-                            Button(onClick = { showSecondMovePicker = true }, enabled = !moveMadeThisTurn, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Blue)) { Text("نقشه") }
+                            Button(onClick = { showSecondMovePicker = true }, enabled = !moveMadeThisTurn, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBDBDBB), contentColor = Color.Black)) { Text("نقشه") }
                         }
                     }
                     if (error.isNotEmpty()) Text(error, color = Color(0xFF8D0000), fontSize = 12.sp)
@@ -674,7 +679,7 @@ private fun DetectivePage(
                 Text("محل‌های قابل انتخاب پلیس", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Text("شماره این محل‌ها روی نقشه نمایش داده نمی‌شود و فقط برای انتخاب موقعیت پلیس استفاده می‌گردد.", color = Color.Black, fontSize = 12.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Button(onClick = { showPolicePicker = true }, colors = ButtonDefaults.buttonColors(containerColor = Blue), modifier = Modifier.height(52.dp)) {
+                    Button(onClick = { showPolicePicker = true }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBDBDBB), contentColor = Color.Black), modifier = Modifier.height(52.dp)) {
                         Text("انتخاب از نقشه", fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.width(10.dp))
@@ -692,7 +697,7 @@ private fun DetectivePage(
                         DarkField(house, { house = it.filter(Char::isDigit).take(3) }, "شماره خانه", "⌕", KeyboardType.Number)
                     }
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = { showHousePicker = true }, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Color.White)) {
+                    Button(onClick = { showHousePicker = true }, modifier = Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBDBDBB), contentColor = Color.Black)) {
                         Text("نقشه", fontWeight = FontWeight.Bold)
                     }
                 }
@@ -1058,15 +1063,16 @@ private fun HousePickerDialog(
 ) {
     val points = rememberBoardPoints("houses.json")
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(color = Color(0xFF11100E), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxSize().padding(10.dp)) {
-            Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Surface(color = Color(0xFF11100E), modifier = Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("با لمس خانه موردنظر روی نقشه، شماره همان خانه انتخاب می‌شود.", color = Color(0xFFF2DFC0), fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 BoardMap(
                     showNumberOverlay = true,
                     selectedNumbers = currentSelection?.let { setOf(it) } ?: emptySet(),
                     onTap = { point -> onSelect(point.number) },
-                    points = points
+                    points = points,
+                    modifier = Modifier.weight(1f)
                 )
                 Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = DarkButton, contentColor = Gold)) {
                     Text("بستن", fontWeight = FontWeight.Bold)
@@ -1086,8 +1092,8 @@ private fun PolicePickerDialog(
     val localSelection = remember(selectedPolice) { selectedPolice.toMutableStateList() }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(color = Color(0xFF11100E), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxSize().padding(10.dp)) {
-            Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Surface(color = Color(0xFF11100E), modifier = Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("انتخاب موقعیت پلیس‌ها", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("شماره‌های پلیس روی نقشه نمایش داده نمی‌شود. با لمس موقعیت‌ها آن‌ها را انتخاب یا لغو انتخاب کنید.", color = Color(0xFFF2DFC0), fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 BoardMap(
@@ -1097,7 +1103,8 @@ private fun PolicePickerDialog(
                         if (localSelection.contains(point.number)) localSelection.remove(point.number) else localSelection.add(point.number)
                     },
                     points = points,
-                    selectionColor = Blue
+                    selectionColor = Blue,
+                    modifier = Modifier.weight(1f)
                 )
                 Text(
                     if (localSelection.isEmpty()) "هیچ موقعیتی انتخاب نشده است."
@@ -1127,113 +1134,169 @@ private fun BoardMap(
     selectedNumbers: Set<Int>,
     showNumberOverlay: Boolean,
     onTap: (BoardPoint) -> Unit,
-    selectionColor: Color = Gold
+    selectionColor: Color = Gold,
+    modifier: Modifier = Modifier
 ) {
     ZoomableFeatureMap(
         points = points,
         showHouseNumbers = showNumberOverlay,
         selected = selectedNumbers,
         selectedColor = selectionColor,
-        onTap = onTap
+        onTap = onTap,
+        modifier = modifier
     )
 }
 
+/**
+ * Full-area, aspect-correct map. The original PNG is decoded at its native resolution and
+ * redrawn from that source for every zoom level with high-quality filtering; it is never
+ * stretched to the phone's aspect ratio and is not raster-scaled inside a graphicsLayer.
+ */
 @Composable
 private fun ZoomableFeatureMap(
     points: List<BoardPoint>,
     showHouseNumbers: Boolean,
     selected: Set<Int>,
     selectedColor: Color,
-    onTap: (BoardPoint) -> Unit
+    onTap: (BoardPoint) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-    val transformState = rememberTransformableState { zoomChange, panChange, _ ->
-        val newScale = (scale * zoomChange).coerceIn(1f, 6f)
-        scale = newScale
-        offset += panChange
+    val context = LocalContext.current
+    val baseBitmap = remember {
+        BitmapFactory.decodeResource(context.resources, R.drawable.whitechapel_board_base).asImageBitmap()
+    }
+    val numberBitmap = remember {
+        BitmapFactory.decodeResource(context.resources, R.drawable.whitechapel_house_numbers_overlay).asImageBitmap()
     }
 
-    BoxWithConstraints(
-        Modifier
-            .fillMaxWidth()
-            .aspectRatio(BOARD_ASPECT_RATIO)
-            .clip(RoundedCornerShape(6.dp))
-    ) {
-        val mapWidth = constraints.maxWidth.toFloat()
-        val mapHeight = constraints.maxHeight.toFloat()
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
 
-        Box(
-            Modifier
-                .fillMaxSize()
-                .transformable(transformState)
-                .pointerInput(points, scale, offset) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            scale = 1f
-                            offset = Offset.Zero
-                        },
-                        onTap = { raw ->
-                            val local = Offset(
-                                (raw.x - offset.x) / scale,
-                                (raw.y - offset.y) / scale
-                            )
-                            var nearest: BoardPoint? = null
-                            var bestDistance = Float.MAX_VALUE
-                            points.forEach { point ->
-                                val dx = local.x - point.normX * mapWidth
-                                val dy = local.y - point.normY * mapHeight
-                                val distance = sqrt(dx * dx + dy * dy)
-                                if (distance < bestDistance) {
-                                    bestDistance = distance
-                                    nearest = point
-                                }
+    BoxWithConstraints(
+        modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .pointerInput(Unit) {
+                detectTransformGestures { centroid, pan, zoom, _ ->
+                    val oldScale = scale
+                    val newScale = (oldScale * zoom).coerceIn(1f, 6f)
+                    val ratio = newScale / oldScale
+                    // Keep the point under the fingers stable while zooming and also apply pan.
+                    offset = centroid + pan - (centroid - offset) * ratio
+                    scale = newScale
+                }
+            }
+            .pointerInput(points, scale, offset) {
+                detectTapGestures(
+                    onDoubleTap = {
+                        scale = 1f
+                        offset = Offset.Zero
+                    },
+                    onTap = { raw ->
+                        val viewportW = size.width.toFloat()
+                        val viewportH = size.height.toFloat()
+                        val boardAspect = BOARD_ASPECT_RATIO
+                        val boardW: Float
+                        val boardH: Float
+                        val boardLeft: Float
+                        val boardTop: Float
+                        if (viewportW / viewportH > boardAspect) {
+                            boardH = viewportH
+                            boardW = boardH * boardAspect
+                            boardLeft = (viewportW - boardW) / 2f
+                            boardTop = 0f
+                        } else {
+                            boardW = viewportW
+                            boardH = boardW / boardAspect
+                            boardLeft = 0f
+                            boardTop = (viewportH - boardH) / 2f
+                        }
+
+                        val unscaled = (raw - offset) / scale
+                        val mapX = unscaled.x - boardLeft
+                        val mapY = unscaled.y - boardTop
+                        if (mapX !in 0f..boardW || mapY !in 0f..boardH) return@detectTapGestures
+
+                        var nearest: BoardPoint? = null
+                        var bestDistance = Float.MAX_VALUE
+                        points.forEach { point ->
+                            val dx = mapX - point.normX * boardW
+                            val dy = mapY - point.normY * boardH
+                            val distance = sqrt(dx * dx + dy * dy)
+                            if (distance < bestDistance) {
+                                bestDistance = distance
+                                nearest = point
                             }
-                            if (bestDistance <= 32f / scale) nearest?.let(onTap)
                         }
-                    )
-                }
-        ) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = offset.x
-                        translationY = offset.y
-                        transformOrigin = TransformOrigin(0f, 0f)
+                        if (bestDistance <= 40f / scale) nearest?.let(onTap)
                     }
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.whitechapel_board_base),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds
                 )
-                if (showHouseNumbers) {
-                    Image(
-                        painter = painterResource(R.drawable.whitechapel_house_numbers_overlay),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.FillBounds
+            }
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val viewportW = size.width
+            val viewportH = size.height
+            val boardAspect = BOARD_ASPECT_RATIO
+            val boardW: Float
+            val boardH: Float
+            val boardLeft: Float
+            val boardTop: Float
+            if (viewportW / viewportH > boardAspect) {
+                boardH = viewportH
+                boardW = boardH * boardAspect
+                boardLeft = (viewportW - boardW) / 2f
+                boardTop = 0f
+            } else {
+                boardW = viewportW
+                boardH = boardW / boardAspect
+                boardLeft = 0f
+                boardTop = (viewportH - boardH) / 2f
+            }
+
+            val dstLeft = boardLeft * scale + offset.x
+            val dstTop = boardTop * scale + offset.y
+            val dstW = boardW * scale
+            val dstH = boardH * scale
+            val dstOffset = IntOffset(dstLeft.roundToInt(), dstTop.roundToInt())
+            val dstSize = IntSize(dstW.roundToInt().coerceAtLeast(1), dstH.roundToInt().coerceAtLeast(1))
+
+            drawImage(
+                image = baseBitmap,
+                srcOffset = IntOffset.Zero,
+                srcSize = IntSize(baseBitmap.width, baseBitmap.height),
+                dstOffset = dstOffset,
+                dstSize = dstSize,
+                filterQuality = FilterQuality.High
+            )
+            if (showHouseNumbers) {
+                drawImage(
+                    image = numberBitmap,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(numberBitmap.width, numberBitmap.height),
+                    dstOffset = dstOffset,
+                    dstSize = dstSize,
+                    filterQuality = FilterQuality.High
+                )
+            }
+
+            // Larger hollow marker so the underlying house number stays readable.
+            val markerRadius = boardH * 0.030f * scale
+            val markerStroke = (boardH * 0.0065f * scale).coerceAtLeast(2f)
+            selected.forEach { number ->
+                points.firstOrNull { it.number == number }?.let { point ->
+                    val center = Offset(
+                        (boardLeft + point.normX * boardW) * scale + offset.x,
+                        (boardTop + point.normY * boardH) * scale + offset.y
                     )
-                }
-                Canvas(Modifier.matchParentSize()) {
-                    val radius = size.minDimension * 0.013f
-                    selected.forEach { number ->
-                        points.firstOrNull { it.number == number }?.let { point ->
-                            val center = Offset(point.normX * size.width, point.normY * size.height)
-                            drawCircle(
-                                color = selectedColor,
-                                radius = radius * 1.55f,
-                                center = center,
-                                style = Stroke(width = radius * 0.42f)
-                            )
-                        }
-                    }
+                    drawCircle(
+                        color = selectedColor,
+                        radius = markerRadius,
+                        center = center,
+                        style = Stroke(width = markerStroke)
+                    )
                 }
             }
         }
     }
 }
+
