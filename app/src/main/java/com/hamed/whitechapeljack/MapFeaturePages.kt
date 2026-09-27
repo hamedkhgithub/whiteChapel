@@ -416,6 +416,9 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
     val numberBitmap=remember{BitmapFactory.decodeResource(context.resources,R.drawable.whitechapel_house_numbers_overlay).asImageBitmap()}
     var scale by remember{mutableFloatStateOf(1f)}
     var offset by remember{mutableStateOf(Offset.Zero)}
+    // The pointerInput coroutine can outlive a recomposition. Keep the latest tap
+    // callback so placement always sees the current victim list and selected type.
+    val currentOnTap by rememberUpdatedState(onTap)
 
     BoxWithConstraints(
         modifier.fillMaxSize().background(Color.Black)
@@ -433,7 +436,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
                     if(mx !in 0f..bw || my !in 0f..bh)return@detectTapGestures
                     var best:BoardPoint?=null;var distance=Float.MAX_VALUE
                     points.forEach{p->val dx=mx-p.normX*bw;val dy=my-p.normY*bh;val d=sqrt(dx*dx+dy*dy);if(d<distance){distance=d;best=p}}
-                    if(distance<=42f/scale)best?.let(onTap)
+                    if(distance<=42f/scale)best?.let { currentOnTap(it) }
                 })
             }
     ){
