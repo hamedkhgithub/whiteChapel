@@ -336,7 +336,7 @@ private fun Splash(onDone: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(12.dp))
-            Text("Preparing the streets of Whitechapel...", color = Gold, fontSize = 12.sp)
+            Text("در حال آماده‌سازی خیابان‌های وایت‌چپل...", color = Gold, fontSize = 12.sp)
         }
     }
 }
@@ -355,15 +355,15 @@ private fun Home(
         Column(Modifier.fillMaxSize().padding(horizontal = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.weight(.20f))
             if (TvServerInfo.url.isNotBlank()) {
-                Text("TV: ${TvServerInfo.url}", color = Gold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
+                Text("نمایش عمومی: ${TvServerInfo.url}", color = Gold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
             }
-            MenuButton("▶", "شروع بازی جدید", "Classic • نیازمند بوردگیم", true, onNewGame)
+            MenuButton("▶", "شروع بازی جدید", "کلاسیک • نیازمند صفحه بازی", true, onNewGame)
             Spacer(Modifier.height(10.dp))
-            MenuButton("▰", "ادامه بازی کلاسیک", "Continue Classic", hasGame, onContinue)
+            MenuButton("▰", "ادامه بازی کلاسیک", "ادامه بازی کلاسیک", hasGame, onContinue)
             Spacer(Modifier.height(10.dp))
-            MenuButton("⌖", "شروع بازی جدید با نقشه", "Digital Board • بدون بوردگیم", true, onNewMapGame)
+            MenuButton("⌖", "شروع بازی جدید با نقشه", "نقشه دیجیتال • بدون صفحه بازی", true, onNewMapGame)
             Spacer(Modifier.height(10.dp))
-            MenuButton("◉", "ادامه بازی با نقشه", "Continue Digital Board", true, onContinueMap)
+            MenuButton("◉", "ادامه بازی با نقشه", "ادامه بازی با نقشه دیجیتال", true, onContinueMap)
             Spacer(Modifier.weight(.12f))
         }
     }
@@ -380,7 +380,7 @@ private fun NewGame(onBack: () -> Unit, onStart: (Int, String) -> Unit) {
 
     Background {
         Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Header("شروع بازی جدید", "New Game Setup", onBack, true)
+            Header("شروع بازی جدید", "تنظیمات بازی جدید", onBack, true)
             GrayCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("⌂", fontSize = 43.sp, color = Color.Black)
@@ -401,10 +401,10 @@ private fun NewGame(onBack: () -> Unit, onStart: (Int, String) -> Unit) {
                 Text("🔒  مخفیگاه برای کل بازی ثابت می‌ماند و قابل تغییر نیست.", color = Color.Black, fontSize = 13.sp)
             }
             GrayCard {
-                Text("🔐  تعیین PIN جک", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "PIN")
-                PinField(confirm, { confirm = it.filter(Char::isDigit).take(6) }, "تکرار PIN")
-                if (confirm.isNotEmpty() && pin != confirm) Text("PINها یکسان نیستند.", color = Color(0xFF8D0000), fontSize = 12.sp)
+                Text("🔐  تعیین رمز جک", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "رمز")
+                PinField(confirm, { confirm = it.filter(Char::isDigit).take(6) }, "تکرار رمز")
+                if (confirm.isNotEmpty() && pin != confirm) Text("رمزها یکسان نیستند.", color = Color(0xFF8D0000), fontSize = 12.sp)
             }
             RedButton("▶   شروع بازی", valid) { onStart(h.toInt(), pin) }
         }
@@ -476,7 +476,7 @@ private fun JackPage(
             }
 
             GrayCard {
-                Text(if (night == 3) "محل‌های ارتکاب قتل (Double Event)" else "محل ارتکاب قتل", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(if (night == 3) "محل‌های ارتکاب قتل (قتل دوگانه)" else "محل ارتکاب قتل", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 if (night == 3 && start == null) {
                     Text("ترتیب دو قتل محرمانه است؛ محل دوم، موقعیت شروع فرار جک است.", color = Color.Black, fontSize = 12.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -530,7 +530,7 @@ private fun JackPage(
                 GrayCard {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("نوع حرکت", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Move Track: $trackUsed / 15", color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text("شمارنده حرکت: $trackUsed / 15", color = Color.Black, fontWeight = FontWeight.Bold)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         MoveChip("🚶", "عادی", "", type == MoveType.NORMAL, !moveMadeThisTurn, Color.Black) { type = MoveType.NORMAL }
@@ -556,7 +556,7 @@ private fun JackPage(
                         val a = d1.toIntOrNull(); val b = d2.toIntOrNull(); val cost = if (type == MoveType.COACH) 2 else 1
                         when {
                             moveMadeThisTurn -> error = "حرکت این نوبت ثبت شده است. ابتدا آن را اصلاح کنید یا گوشی را به کارآگاه‌ها تحویل دهید."
-                            trackUsed + cost > 15 -> error = "ظرفیت Move Track این شب تمام شده است."
+                            trackUsed + cost > 15 -> error = "ظرفیت شمارنده حرکت این شب تمام شده است."
                             a == null || a !in 1..195 || (type == MoveType.COACH && (b == null || b !in 1..195)) -> error = "شماره مقصد معتبر نیست."
                             type == MoveType.COACH && coachLeft <= 0 -> error = "درشکه‌های این شب تمام شده‌اند."
                             type == MoveType.ALLEY && alleyLeft <= 0 -> error = "حرکت کوچه این شب تمام شده است."
@@ -670,7 +670,7 @@ private fun DetectivePage(
 
     Background {
         Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SimpleTitle("کارآگاه‌ها", "Detective Mode • شب $night")
+            SimpleTitle("کارآگاه‌ها", "حالت کارآگاه • شب $night")
             if (escapedPrevious) Card(colors = CardDefaults.cardColors(containerColor = Green), modifier = Modifier.fillMaxWidth()) {
                 Text("✓ فرار شب قبل توسط برنامه تأیید شد.", Modifier.padding(14.dp), color = Color.White, fontWeight = FontWeight.Bold)
             }
@@ -738,7 +738,7 @@ private fun DetectivePage(
                 items(history) { q ->
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC17130F)), modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(12.dp)) {
-                            Text(if (q.type == InquiryType.SEARCH) "⌕ Search" else "⛓ Arrest", color = if (q.type == InquiryType.SEARCH) Color(0xFF65B6E8) else Color(0xFFFF7777))
+                            Text(if (q.type == InquiryType.SEARCH) "⌕ جستجو" else "⛓ دستگیری", color = if (q.type == InquiryType.SEARCH) Color(0xFF65B6E8) else Color(0xFFFF7777))
                             Spacer(Modifier.weight(1f))
                             Text("خانه ${q.house} • ${if (q.positive) "✓ مثبت" else "✗ منفی"}", color = Color.White)
                         }
@@ -774,9 +774,9 @@ private fun UnlockPage(pinHash: String, onSuccess: () -> Unit, onCancel: () -> U
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             GrayCard {
                 Text("🔐 ورود محرمانه جک", color = Color.Black, fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "PIN")
+                PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "رمز")
                 if (error.isNotEmpty()) Text(error, color = Color(0xFF8D0000))
-                Button(onClick = { if (GameStore.hash(pin) == pinHash) onSuccess() else error = "PIN اشتباه است." }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Blood)) {
+                Button(onClick = { if (GameStore.hash(pin) == pinHash) onSuccess() else error = "رمز اشتباه است." }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Blood)) {
                     Text("باز کردن دفترچه", fontWeight = FontWeight.Bold)
                 }
             }
@@ -796,7 +796,7 @@ private fun AuditPage(
 ) {
     Background {
         Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SimpleTitle("بررسی نهایی بازی", "Game Audit / Reveal")
+            SimpleTitle("بررسی نهایی بازی", "بررسی و آشکارسازی نهایی")
             GrayCard { Text("مخفیگاه: $hideout", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 22.sp) }
             LazyColumn(Modifier.weight(1f)) {
                 for (n in 1..4) {
@@ -806,8 +806,8 @@ private fun AuditPage(
                         val policeLabel = police[n].orEmpty().sorted().joinToString("، ").ifEmpty { "—" }
                         Text("موقعیت پلیس‌ها: $policeLabel", color = Color.LightGray, modifier = Modifier.padding(bottom = 6.dp))
                     }
-                    items(moves.filter { it.night == n }) { m -> Text("حرکت ${m.turn}: ${m.first}${m.second?.let { " → $it" } ?: ""} • ${m.type.name}", color = Color.White) }
-                    items(queries.filter { it.night == n }) { q -> Text("${q.type.name} ${q.house}: ${if (q.positive) "✓" else "✗"}", color = Color.LightGray) }
+                    items(moves.filter { it.night == n }) { m -> Text("حرکت ${m.turn}: ${m.first}${m.second?.let { " → $it" } ?: ""} • ${when(m.type){MoveType.NORMAL->"عادی";MoveType.COACH->"درشکه";MoveType.ALLEY->"کوچه"}}", color = Color.White) }
+                    items(queries.filter { it.night == n }) { q -> Text("${if(q.type==InquiryType.SEARCH) "جستجو" else "دستگیری"} ${q.house}: ${if (q.positive) "✓" else "✗"}", color = Color.LightGray) }
                 }
             }
             RedButton("پایان و پاک کردن بازی", true, onClear)
