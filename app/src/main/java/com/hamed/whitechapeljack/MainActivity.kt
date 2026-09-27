@@ -1,5 +1,8 @@
 package com.hamed.whitechapeljack
 
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.os.Bundle
@@ -137,7 +140,13 @@ class MainActivity : ComponentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         tvServer = TvMapServer(this).also { it.start() }
         MapStateStore.publish(this)
-        setContent { WhitechapelApp(GameStore(this)) }
+        setContent {
+    CompositionLocalProvider(
+        LocalLayoutDirection provides LayoutDirection.Rtl
+    ) {
+        WhitechapelApp(GameStore(this))
+    }
+}
     }
 
     override fun onDestroy() {
