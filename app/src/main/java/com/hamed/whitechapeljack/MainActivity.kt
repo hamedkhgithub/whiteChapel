@@ -1,7 +1,6 @@
 package com.hamed.whitechapeljack
 
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.text.style.TextDirection
 
 import android.content.Context
 import android.graphics.BitmapFactory
@@ -140,9 +139,12 @@ class MainActivity : ComponentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         tvServer = TvMapServer(this).also { it.start() }
         MapStateStore.publish(this)
-        setContent {
+setContent {
     CompositionLocalProvider(
-        LocalLayoutDirection provides LayoutDirection.Rtl
+        LocalTextStyle provides LocalTextStyle.current.copy(
+            textDirection = TextDirection.Rtl,
+            textAlign = TextAlign.Right
+        )
     ) {
         WhitechapelApp(GameStore(this))
     }
