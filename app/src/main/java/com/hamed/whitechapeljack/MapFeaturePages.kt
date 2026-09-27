@@ -88,19 +88,35 @@ private fun roman(n:Int)=listOf("","I","II","III","IV","V").getOrElse(n){n.toStr
     LaunchedEffect(phase) { selectedId = 1; action = "search" }
     fun save(){DigitalGameStore.save(ctx,o);rev++}
     fun setPhase(p:String){o.put("phase",p);save()}
-    val title=when(phase){"HELL_WOMEN"->"HELL • جک: جانمایی Women";"HAND_POLICE"->"تحویل گوشی به کارآگاه";"HELL_POLICE"->"HELL • کارآگاه: جانمایی پلیس";"HAND_JACK"->"تحویل گوشی به جک";"HELL_DECISION"->"HELL • تصمیم جک";"HELL_MOVE_WOMEN"->"HELL • حرکت Women توسط کارآگاه";"HELL_REVEAL_POLICE"->"HELL • جک: افشای یک Patrol";"HELL_KILL"->"HELL • انتخاب قربانی";"HUNT_JACK_UNLOCK"->"HUNTING • ورود محرمانه جک";"HUNT_JACK"->"HUNTING • ثبت حرکت جک";"HUNT_POLICE_MOVE"->"HUNTING • حرکت پلیس";"HUNT_POLICE_ACTION"->"HUNTING • سرنخ / دستگیری";else->phase}
+    val title=when(phase){"HELL_WOMEN"->"HELL • جک: جانمایی قربانی‌ها";"HAND_POLICE"->"تحویل گوشی به کارآگاه";"HELL_POLICE"->"HELL • کارآگاه: جانمایی پلیس";"HAND_JACK"->"تحویل گوشی به جک";"HELL_DECISION"->"HELL • تصمیم جک";"HELL_MOVE_WOMEN"->"HELL • حرکت قربانی‌ها توسط کارآگاه";"HELL_REVEAL_POLICE"->"HELL • جک: افشای یک Patrol";"HELL_KILL"->"HELL • انتخاب قربانی";"HUNT_JACK_UNLOCK"->"HUNTING • ورود محرمانه جک";"HUNT_JACK"->"HUNTING • ثبت حرکت جک";"HUNT_POLICE_MOVE"->"HUNTING • حرکت پلیس";"HUNT_POLICE_ACTION"->"HUNTING • سرنخ / دستگیری";else->phase}
     Column(Modifier.fillMaxSize().background(Color(0xFF100E0C)).padding(8.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
         Row(verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onBack){Text("‹ خانه",color=FGold)};Text(title,color=Color.White,fontWeight=FontWeight.Bold,fontSize=18.sp,modifier=Modifier.weight(1f),textAlign=TextAlign.Center);Text("شب $night • ${roman(time)}",color=FGold,fontSize=12.sp)}
         TvLinkCard()
         when(phase){
             "HELL_WOMEN"->{
-                val (total,real)=womenCounts(night)
-                TokenSelector((1..total).map{ id->if(id<=real) Color.Red else Color.White},selectedId){selectedId=it}
-                Text("مهره را از نوار بالا انتخاب کن و روی محل موردنظر قرار بده. روی TV همه Womenها یکسان دیده می‌شوند.",color=Color.LightGray,fontSize=11.sp)
+                val (total,realTarget)=womenCounts(night)
+                val fakeTarget=total-realTarget
+                val realCount=women.count{it.real};val fakeCount=women.count{!it.real}
+                VictimTypeSelector(selectedReal=selectedId==1,onSelect={selectedId=if(it)1 else 2})
+                Text("قرمز: قربانی واقعی ($realCount/$realTarget)   •   سفید: قربانی فیک ($fakeCount/$fakeTarget)",color=Color.LightGray,fontSize=11.sp,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
+                Text("نوع قربانی را از بالا انتخاب کن و روی نقشه بزن. لمس دوباره یک قربانی، آن را حذف می‌کند. روی TV همه قربانی‌ها یکسان دیده می‌شوند.",color=Color.LightGray,fontSize=11.sp)
                 GameMap(hp,true,women.associate{it.point to hc(it.color)},emptySet(),{p->
-                    val list=women.toMutableList();val isReal=selectedId<=real;val t=DToken(selectedId,p.number,if(isReal)"#D32F2F" else "#FFFFFF",isReal);val k=list.indexOfFirst{it.id==selectedId};if(k>=0)list[k]=t else list+=t;o.put("women",list.json());save()
+                    val list=women.toMutableList()
+                    val existing=list.indexOfFirst{it.point==p.number}
+                    if(existing>=0){
+                        list.removeAt(existing)
+                    }else{
+                        val isReal=selectedId==1
+                        val current=list.count{it.real==isReal}
+                        val limit=if(isReal)realTarget else fakeTarget
+                        if(current<limit){
+                            val nextId=(list.maxOfOrNull{it.id}?:0)+1
+                            list+=DToken(nextId,p.number,if(isReal)"#D32F2F" else "#FFFFFF",isReal)
+                        }
+                    }
+                    o.put("women",list.json());save()
                 },Modifier.weight(1f))
-                Button(onClick={setPhase("HAND_POLICE")},enabled=women.size==total,modifier=Modifier.fillMaxWidth()){Text("تحویل به کارآگاه")}
+                Button(onClick={setPhase("HAND_POLICE")},enabled=realCount==realTarget && fakeCount==fakeTarget,modifier=Modifier.fillMaxWidth()){Text("تحویل به کارآگاه")}
             }
             "HAND_POLICE"->Handoff("گوشی را به کارآگاه بدهید"){setPhase("HELL_POLICE")}
             "HELL_POLICE"->{
@@ -133,11 +149,11 @@ private fun roman(n:Int)=listOf("","I","II","III","IV","V").getOrElse(n){n.toStr
                 Button(onClick={
                     val committed=women.toMutableList();if(movingTokenId!=null && pendingPoint!=null){val k=committed.indexOfFirst{it.id==movingTokenId};if(k>=0)committed[k]=committed[k].copy(point=pendingPoint!!)}
                     o.put("women",committed.json()).put("phase","HELL_REVEAL_POLICE");movingTokenId=null;pendingPoint=null;save()
-                },modifier=Modifier.fillMaxWidth()){Text("پایان حرکت Women • تحویل به جک")}
+                },modifier=Modifier.fillMaxWidth()){Text("پایان حرکت قربانی‌ها • تحویل به جک")}
             }
             "HELL_REVEAL_POLICE"->{val hidden=police.filter{!it.revealed};Text("یکی از Police Patrolهای مخفی را انتخاب کن تا هویتش عمومی شود.",color=Color.White);GameMap(pp,true,police.associate{it.point to if(it.revealed)hc(it.color) else Color.Black},emptySet(),{p->val list=police.toMutableList();val k=list.indexOfFirst{it.point==p.number&&!it.revealed};if(k>=0){list[k]=list[k].copy(revealed=true);o.put("police",list.json());setPhase("HELL_DECISION")}},Modifier.weight(1f))}
             "HELL_KILL"->{
-                Text("یکی از Womenهای باقی‌مانده را برای قتل انتخاب کن.",color=Color.White)
+                Text("یکی از قربانی‌های باقی‌مانده را برای قتل انتخاب کن.",color=Color.White)
                 GameMap(hp,true,women.associate{it.point to Color.Red},emptySet(),{p->
                     val victim=women.firstOrNull{it.point==p.number}?:return@GameMap
                     val crimes=o.optJSONArray("crime")?:JSONArray(); if((0 until crimes.length()).none{crimes.getInt(it)==victim.point}) crimes.put(victim.point)
@@ -311,6 +327,26 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
 
 @Composable private fun CenterMessage(t:String,onBack:()->Unit){Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){Text(t,color=FGold,fontSize=22.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center);Button(onClick=onBack){Text("صفحه اصلی")}}}
 @Composable private fun Handoff(t:String,onReady:()->Unit){Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){Text(t,color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(20.dp));Button(onClick=onReady){Text("آماده‌ام")}}}
+
+@Composable private fun VictimTypeSelector(selectedReal:Boolean,onSelect:(Boolean)->Unit){
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
+        listOf(true to Color.Red,false to Color.White).forEach{(real,color)->
+            val selected=selectedReal==real
+            Surface(
+                onClick={onSelect(real)},
+                color=if(selected)Color(0xFF3A332B) else Color(0xFF1D1A17),
+                shape=RoundedCornerShape(8.dp),
+                border=androidx.compose.foundation.BorderStroke(if(selected)2.dp else 1.dp,if(selected)FGold else Color.DarkGray),
+                modifier=Modifier.weight(1f).height(52.dp)
+            ){
+                Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+                    Box(Modifier.size(30.dp).border(5.dp,color,RoundedCornerShape(50)))
+                }
+            }
+        }
+    }
+}
+
 @Composable private fun TokenSelector(colors:List<Color>,selected:Int,onSelect:(Int)->Unit){
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){
         colors.forEachIndexed{i,color->
