@@ -49,6 +49,8 @@ private fun hc(s:String)=Color(android.graphics.Color.parseColor(s))
 
 data class DToken(val id:Int,val point:Int,val color:String,val real:Boolean,val revealed:Boolean=false)
 
+private enum class VictimPlacementType { REAL, FAKE }
+
 object DigitalGameStore {
     private const val PREF="whitechapel_digital_final"; private const val KEY="game"
     fun exists(c:Context)=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).contains(KEY)
@@ -78,6 +80,7 @@ private fun roman(n:Int)=listOf("","I","II","III","IV","V").getOrElse(n){n.toStr
 
 @Composable fun DigitalGamePage(onBack:()->Unit){
     val ctx=LocalContext.current;var rev by remember{mutableIntStateOf(0)};var selectedId by remember{mutableIntStateOf(1)};var action by remember{mutableStateOf("search")}
+    var victimPlacementType by remember { mutableStateOf(VictimPlacementType.REAL) }
     val o=remember(rev){DigitalGameStore.load(ctx)}
     if(o==null){Column(Modifier.fillMaxSize().background(Color(0xFF100E0C)).padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("بازی با نقشه‌ای ذخیره نشده است.",color=Color.White);Button(onClick=onBack){Text("بازگشت")}};return}
     val phase=o.optString("phase");val night=o.optInt("night",1);val time=o.optInt("time",1);val women=o.optJSONArray("women")!!.tokens();val police=o.optJSONArray("police")!!.tokens()
@@ -85,7 +88,11 @@ private fun roman(n:Int)=listOf("","I","II","III","IV","V").getOrElse(n){n.toStr
     var pendingPoint by remember(phase){mutableStateOf<Int?>(null)}
     LaunchedEffect(Unit) { DigitalGameStore.publish(ctx) }
     val hp=rememberBoardPointsFeature("houses.json");val pp=rememberBoardPointsFeature("polises.json")
-    LaunchedEffect(phase) { selectedId = 1; action = "search" }
+    LaunchedEffect(phase) {
+        selectedId = 1
+        action = "search"
+        if (phase == "HELL_WOMEN") victimPlacementType = VictimPlacementType.REAL
+    }
     fun save(){DigitalGameStore.save(ctx,o);rev++}
     fun setPhase(p:String){o.put("phase",p);save()}
     val title=when(phase){"HELL_WOMEN"->"HELL • جک: جانمایی قربانی‌ها";"HAND_POLICE"->"تحویل گوشی به کارآگاه";"HELL_POLICE"->"HELL • کارآگاه: جانمایی پلیس";"HAND_JACK"->"تحویل گوشی به جک";"HELL_DECISION"->"HELL • تصمیم جک";"HELL_MOVE_WOMEN"->"HELL • حرکت قربانی‌ها توسط کارآگاه";"HELL_REVEAL_POLICE"->"HELL • جک: افشای یک Patrol";"HELL_KILL"->"HELL • انتخاب قربانی";"HUNT_JACK_UNLOCK"->"HUNTING • ورود محرمانه جک";"HUNT_JACK"->"HUNTING • ثبت حرکت جک";"HUNT_POLICE_MOVE"->"HUNTING • حرکت پلیس";"HUNT_POLICE_ACTION"->"HUNTING • سرنخ / دستگیری";else->phase}
@@ -97,24 +104,43 @@ private fun roman(n:Int)=listOf("","I","II","III","IV","V").getOrElse(n){n.toStr
                 val (total,realTarget)=womenCounts(night)
                 val fakeTarget=total-realTarget
                 val realCount=women.count{it.real};val fakeCount=women.count{!it.real}
-                VictimTypeSelector(selectedReal=selectedId==1,onSelect={selectedId=if(it)1 else 2})
-                Text("قرمز: قربانی واقعی ($realCount/$realTarget)   •   سفید: قربانی فیک ($fakeCount/$fakeTarget)",color=Color.LightGray,fontSize=11.sp,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
-                Text("نوع قربانی را از بالا انتخاب کن و روی نقشه بزن. لمس دوباره یک قربانی، آن را حذف می‌کند. روی TV همه قربانی‌ها یکسان دیده می‌شوند.",color=Color.LightGray,fontSize=11.sp)
+                VictimTypeSelector(
+                    selectedType = victimPlacementType,
+                    onSelect = { victimPlacementType = it }
+                )
+                Text(
+                    "قرمز: قربانی واقعی ($realCount/$realTarget)   •   سفید: قربانی فیک ($fakeCount/$fakeTarget)",
+                    color=Color.LightGray,fontSize=11.sp,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth()
+                )
+                Text(
+                    "حلقه قرمز یا سفید را انتخاب کن. هر بار روی یک خانه خالی بزنی، قربانی از همان نوع اضافه می‌شود. با لمس دوباره قربانی موجود، همان قربانی حذف می‌شود.",
+                    color=Color.LightGray,fontSize=11.sp
+                )
                 GameMap(hp,true,women.associate{it.point to hc(it.color)},emptySet(),{p->
-                    val list=women.toMutableList()
-                    val existing=list.indexOfFirst{it.point==p.number}
-                    if(existing>=0){
-                        list.removeAt(existing)
-                    }else{
-                        val isReal=selectedId==1
-                        val current=list.count{it.real==isReal}
-                        val limit=if(isReal)realTarget else fakeTarget
-                        if(current<limit){
-                            val nextId=(list.maxOfOrNull{it.id}?:0)+1
-                            list+=DToken(nextId,p.number,if(isReal)"#D32F2F" else "#FFFFFF",isReal)
+                    // Victim placement is intentionally independent from police/token selection.
+                    // 1) tapping an occupied victim point always removes it;
+                    // 2) tapping an empty point adds the currently selected victim type;
+                    // 3) the selected type stays active until Jack explicitly changes it.
+                    val list = women.toMutableList()
+                    val existingIndex = list.indexOfFirst { it.point == p.number }
+                    if (existingIndex >= 0) {
+                        list.removeAt(existingIndex)
+                    } else {
+                        val placingReal = victimPlacementType == VictimPlacementType.REAL
+                        val typeCount = list.count { it.real == placingReal }
+                        val typeLimit = if (placingReal) realTarget else fakeTarget
+                        if (typeCount < typeLimit) {
+                            val nextId = (list.maxOfOrNull { it.id } ?: 0) + 1
+                            list += DToken(
+                                id = nextId,
+                                point = p.number,
+                                color = if (placingReal) "#D32F2F" else "#FFFFFF",
+                                real = placingReal
+                            )
                         }
                     }
-                    o.put("women",list.json());save()
+                    o.put("women", list.json())
+                    save()
                 },Modifier.weight(1f))
                 Button(onClick={setPhase("HAND_POLICE")},enabled=realCount==realTarget && fakeCount==fakeTarget,modifier=Modifier.fillMaxWidth()){Text("تحویل به کارآگاه")}
             }
@@ -328,19 +354,28 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
 @Composable private fun CenterMessage(t:String,onBack:()->Unit){Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){Text(t,color=FGold,fontSize=22.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center);Button(onClick=onBack){Text("صفحه اصلی")}}}
 @Composable private fun Handoff(t:String,onReady:()->Unit){Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){Text(t,color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(20.dp));Button(onClick=onReady){Text("آماده‌ام")}}}
 
-@Composable private fun VictimTypeSelector(selectedReal:Boolean,onSelect:(Boolean)->Unit){
+@Composable private fun VictimTypeSelector(
+    selectedType: VictimPlacementType,
+    onSelect: (VictimPlacementType) -> Unit
+){
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
-        listOf(true to Color.Red,false to Color.White).forEach{(real,color)->
-            val selected=selectedReal==real
+        listOf(
+            VictimPlacementType.REAL to Color.Red,
+            VictimPlacementType.FAKE to Color.White
+        ).forEach { (type,color) ->
+            val selected = selectedType == type
             Surface(
-                onClick={onSelect(real)},
-                color=if(selected)Color(0xFF3A332B) else Color(0xFF1D1A17),
-                shape=RoundedCornerShape(8.dp),
-                border=androidx.compose.foundation.BorderStroke(if(selected)2.dp else 1.dp,if(selected)FGold else Color.DarkGray),
-                modifier=Modifier.weight(1f).height(52.dp)
+                onClick = { onSelect(type) },
+                color = if(selected) Color(0xFF3A332B) else Color(0xFF1D1A17),
+                shape = RoundedCornerShape(8.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    if(selected) 3.dp else 1.dp,
+                    if(selected) FGold else Color.DarkGray
+                ),
+                modifier = Modifier.weight(1f).height(56.dp)
             ){
                 Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
-                    Box(Modifier.size(30.dp).border(5.dp,color,RoundedCornerShape(50)))
+                    Box(Modifier.size(32.dp).border(5.dp,color,RoundedCornerShape(50)))
                 }
             }
         }
