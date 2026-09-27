@@ -336,7 +336,7 @@ private fun Splash(onDone: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(12.dp))
-            Text("در حال آماده‌سازی خیابان‌های وایت‌چپل...", color = Gold, fontSize = 12.sp)
+            Text("Initializing…", color = Gold, fontSize = 13.sp)
         }
     }
 }
@@ -376,7 +376,8 @@ private fun NewGame(onBack: () -> Unit, onStart: (Int, String) -> Unit) {
     var confirm by remember { mutableStateOf("") }
     var showHideoutPicker by remember { mutableStateOf(false) }
     val hideoutNumber = h.toIntOrNull()
-    val valid = hideoutNumber != null && hideoutNumber in 1..195 && pin.length in 4..6 && pin == confirm
+    val redHouseIds = setOf(3, 21, 27, 65, 84, 147, 149, 158)
+    val valid = hideoutNumber != null && hideoutNumber in 1..195 && hideoutNumber !in redHouseIds && pin.length in 4..6 && pin == confirm
 
     Background {
         Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -398,13 +399,14 @@ private fun NewGame(onBack: () -> Unit, onStart: (Int, String) -> Unit) {
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBDBDBB), contentColor = Color.Black)
                     ) { Text("نقشه", fontWeight = FontWeight.Bold) }
                 }
-                Text("🔒  مخفیگاه برای کل بازی ثابت می‌ماند و قابل تغییر نیست.", color = Color.Black, fontSize = 13.sp)
+                Text("🔒  مخفیگاه برای کل بازی ثابت می‌ماند و نمی‌تواند یکی از خانه‌های قرمز باشد.", color = Color.Black, fontSize = 13.sp)
+                if (hideoutNumber != null && hideoutNumber in redHouseIds) Text("خانه قرمز برای مخفیگاه مجاز نیست.", color = Color(0xFF8D0000), fontSize = 12.sp)
             }
             GrayCard {
-                Text("🔐  تعیین رمز جک", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "رمز")
-                PinField(confirm, { confirm = it.filter(Char::isDigit).take(6) }, "تکرار رمز")
-                if (confirm.isNotEmpty() && pin != confirm) Text("رمزها یکسان نیستند.", color = Color(0xFF8D0000), fontSize = 12.sp)
+                Text("🔐  تعیین PIN جک", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "PIN")
+                PinField(confirm, { confirm = it.filter(Char::isDigit).take(6) }, "تکرار PIN")
+                if (confirm.isNotEmpty() && pin != confirm) Text("PINها یکسان نیستند.", color = Color(0xFF8D0000), fontSize = 12.sp)
             }
             RedButton("▶   شروع بازی", valid) { onStart(h.toInt(), pin) }
         }
@@ -415,7 +417,7 @@ private fun NewGame(onBack: () -> Unit, onStart: (Int, String) -> Unit) {
             title = "انتخاب مخفیگاه روی نقشه",
             currentSelection = h.toIntOrNull(),
             onDismiss = { showHideoutPicker = false },
-            onSelect = { selected -> h = selected.toString(); showHideoutPicker = false }
+            onSelect = { selected -> if(selected !in redHouseIds){h = selected.toString(); showHideoutPicker = false} }
         )
     }
 }
@@ -774,9 +776,9 @@ private fun UnlockPage(pinHash: String, onSuccess: () -> Unit, onCancel: () -> U
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             GrayCard {
                 Text("🔐 ورود محرمانه جک", color = Color.Black, fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "رمز")
+                PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "PIN")
                 if (error.isNotEmpty()) Text(error, color = Color(0xFF8D0000))
-                Button(onClick = { if (GameStore.hash(pin) == pinHash) onSuccess() else error = "رمز اشتباه است." }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Blood)) {
+                Button(onClick = { if (GameStore.hash(pin) == pinHash) onSuccess() else error = "PIN اشتباه است." }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Blood)) {
                     Text("باز کردن دفترچه", fontWeight = FontWeight.Bold)
                 }
             }
