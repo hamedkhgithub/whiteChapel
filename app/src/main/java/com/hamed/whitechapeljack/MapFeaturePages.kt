@@ -221,7 +221,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
             }
             "HAND_JACK"->Handoff("گوشی را به جک بدهید") {val realWomen=women.filter{it.real};o.put("women",realWomen.json()).put("time",1);setPublicMessage(o,"قربانی‌های جعلی حذف شدند و قربانی‌های واقعی روی نقشه باقی ماندند.");setPhase("HELL_DECISION")}
             "HELL_DECISION"->{Text("زمان ارتکاب جرم: ${roman(time)}",color=FGold,fontSize=24.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth(),textAlign=TextAlign.Center);Spacer(Modifier.weight(1f));Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Button(onClick={setPhase("HELL_KILL")},colors=ButtonDefaults.buttonColors(containerColor=FBlood),modifier=Modifier.weight(1f)){Text("کشتن")};Button(onClick={val next=(time+1).coerceAtMost(5);o.put("time",next);setPublicMessage(o,"جک منتظر ماند؛ زمان ارتکاب جرم به ${roman(next)} منتقل شد.");setPhase("HELL_WAIT_HANDOFF")},enabled=time<5,modifier=Modifier.weight(1f)){Text(if(time<5)"انتظار" else "در V باید بکشد")}};Spacer(Modifier.weight(1f))}
-            "HELL_WAIT_HANDOFF"->Handoff("گوشی را به کارآگاه بدهید\nآماده‌اید؟"){setPhase("HELL_MOVE_WOMEN")}
+            "HELL_WAIT_HANDOFF"->Handoff("گوشی را به کارآگاه بدهید\n"){setPhase("HELL_MOVE_WOMEN")}
             "HELL_MOVE_WOMEN"->{
                 val preview=women.map{token->if(token.id==movingTokenId && pendingPoint!=null)token.copy(point=pendingPoint!!) else token}
                 val activePoint=movingTokenId?.let{id->preview.firstOrNull{it.id==id}?.point}
