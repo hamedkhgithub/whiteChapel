@@ -221,7 +221,7 @@ fun WhitechapelApp(store: GameStore) {
             "detective" -> save()
             "unlock" -> page = "detective"
             "audit" -> page = "home"
-            "maptest", "hell" -> page = "home"
+            "newmap", "digital" -> page = "home"
             "home" -> Unit
         }
     }
@@ -233,11 +233,10 @@ fun WhitechapelApp(store: GameStore) {
                 hasGame = store.exists(),
                 onNewGame = { page = "newgame" },
                 onContinue = { if (load()) page = if (gameOver) "audit" else "detective" },
-                onMapTest = { page = "maptest" },
-                onHell = { page = "hell" }
+                onNewMapGame = { page = "newmap" },
+                onContinueMap = { page = "digital" }
             )
-            "maptest" -> MapTestPage(onBack = { page = "home" })
-            "hell" -> HellSetupPage(onBack = { page = "home" }, onDone = { page = if (store.exists()) "jack" else "home" })
+            "digital" -> DigitalGamePage(onBack = { page = "home" })
 
             "newgame" -> NewGame(onBack = { page = "home" }) { h, p ->
                 hideout = h
@@ -249,9 +248,13 @@ fun WhitechapelApp(store: GameStore) {
                 queries.clear()
                 escaped.clear()
                 police.clear()
-                MapStateStore.clear(appContext)
                 save()
-                page = "hell"
+                page = "jack"
+            }
+
+            "newmap" -> NewGame(onBack = { page = "home" }) { h, p ->
+                DigitalGameStore.newGame(appContext, h, GameStore.hash(p))
+                page = "digital"
             }
 
             "jack" -> JackPage(
@@ -336,8 +339,8 @@ private fun Home(
     hasGame: Boolean,
     onNewGame: () -> Unit,
     onContinue: () -> Unit,
-    onMapTest: () -> Unit,
-    onHell: () -> Unit
+    onNewMapGame: () -> Unit,
+    onContinueMap: () -> Unit
 ) {
     Box(Modifier.fillMaxSize()) {
         Image(painterResource(R.drawable.home_background), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -347,13 +350,13 @@ private fun Home(
             if (TvServerInfo.url.isNotBlank()) {
                 Text("TV: ${TvServerInfo.url}", color = Gold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
             }
-            MenuButton("▶", "شروع بازی جدید", "New Game", true, onNewGame)
+            MenuButton("▶", "شروع بازی جدید", "Classic • نیازمند بوردگیم", true, onNewGame)
             Spacer(Modifier.height(10.dp))
-            MenuButton("▰", "ادامه بازی", "Continue", hasGame, onContinue)
+            MenuButton("▰", "ادامه بازی کلاسیک", "Continue Classic", hasGame, onContinue)
             Spacer(Modifier.height(10.dp))
-            MenuButton("⌖", "تست نقشه و پلیس", "Map Test", true, onMapTest)
+            MenuButton("⌖", "شروع بازی جدید با نقشه", "Digital Board • بدون بوردگیم", true, onNewMapGame)
             Spacer(Modifier.height(10.dp))
-            MenuButton("♙", "فاز Hell", "Hell Setup", true, onHell)
+            MenuButton("◉", "ادامه بازی با نقشه", "Continue Digital Board", true, onContinueMap)
             Spacer(Modifier.weight(.12f))
         }
     }
