@@ -123,15 +123,25 @@ class GameStore(ctx: Context) {
 }
 
 class MainActivity : ComponentActivity() {
+    private var tvServer: TvMapServer? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        tvServer = TvMapServer(this).also { it.start() }
+        MapStateStore.publish(this)
         setContent { WhitechapelApp(GameStore(this)) }
+    }
+
+    override fun onDestroy() {
+        tvServer?.stop()
+        super.onDestroy()
     }
 }
 
 @Composable
 fun WhitechapelApp(store: GameStore) {
+    val appContext = LocalContext.current
     var page by remember { mutableStateOf("splash") }
     var pinHash by remember { mutableStateOf("") }
     var hideout by remember { mutableIntStateOf(0) }
@@ -211,6 +221,7 @@ fun WhitechapelApp(store: GameStore) {
             "detective" -> save()
             "unlock" -> page = "detective"
             "audit" -> page = "home"
+            "maptest", "hell" -> page = "home"
             "home" -> Unit
         }
     }
@@ -218,9 +229,15 @@ fun WhitechapelApp(store: GameStore) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Gold, surface = Ink)) {
         when (page) {
             "splash" -> Splash { page = "home" }
-            "home" -> Home(store.exists(), onNewGame = { page = "newgame" }, onContinue = {
-                if (load()) page = if (gameOver) "audit" else "detective"
-            })
+            "home" -> Home(
+                hasGame = store.exists(),
+                onNewGame = { page = "newgame" },
+                onContinue = { if (load()) page = if (gameOver) "audit" else "detective" },
+                onMapTest = { page = "maptest" },
+                onHell = { page = "hell" }
+            )
+            "maptest" -> MapTestPage(onBack = { page = "home" })
+            "hell" -> HellSetupPage(onBack = { page = "home" }, onDone = { page = if (store.exists()) "jack" else "home" })
 
             "newgame" -> NewGame(onBack = { page = "home" }) { h, p ->
                 hideout = h
@@ -232,8 +249,9 @@ fun WhitechapelApp(store: GameStore) {
                 queries.clear()
                 escaped.clear()
                 police.clear()
+                MapStateStore.clear(appContext)
                 save()
-                page = "jack"
+                page = "hell"
             }
 
             "jack" -> JackPage(
@@ -314,20 +332,29 @@ private fun Splash(onDone: () -> Unit) {
 }
 
 @Composable
-private fun Home(hasGame: Boolean, onNewGame: () -> Unit, onContinue: () -> Unit) {
+private fun Home(
+    hasGame: Boolean,
+    onNewGame: () -> Unit,
+    onContinue: () -> Unit,
+    onMapTest: () -> Unit,
+    onHell: () -> Unit
+) {
     Box(Modifier.fillMaxSize()) {
         Image(painterResource(R.drawable.home_background), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Color.Black.copy(.12f)))
         Column(Modifier.fillMaxSize().padding(horizontal = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.weight(.40f))
+            Spacer(Modifier.weight(.20f))
+            if (TvServerInfo.url.isNotBlank()) {
+                Text("TV: ${TvServerInfo.url}", color = Gold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
+            }
             MenuButton("▶", "شروع بازی جدید", "New Game", true, onNewGame)
-            Spacer(Modifier.height(13.dp))
+            Spacer(Modifier.height(10.dp))
             MenuButton("▰", "ادامه بازی", "Continue", hasGame, onContinue)
-            Spacer(Modifier.height(13.dp))
-            MenuButton("▤", "راهنما", "How to Play", false) {}
-            Spacer(Modifier.height(13.dp))
-            MenuButton("⚙", "تنظیمات", "Settings", false) {}
-            Spacer(Modifier.weight(.18f))
+            Spacer(Modifier.height(10.dp))
+            MenuButton("⌖", "تست نقشه و پلیس", "Map Test", true, onMapTest)
+            Spacer(Modifier.height(10.dp))
+            MenuButton("♙", "فاز Hell", "Hell Setup", true, onHell)
+            Spacer(Modifier.weight(.12f))
         }
     }
 }
@@ -1097,34 +1124,11 @@ private fun BoardMap(
     onTap: (BoardPoint) -> Unit,
     selectionColor: Color = Gold
 ) {
-    val thresholdPx = 24f
-    BoxWithConstraints(
-        modifier = Modifier.fillMaxWidth().aspectRatio(BOARD_ASPECT_RATIO)
-            .border(1.dp, Gold.copy(alpha = 0.65f), RoundedCornerShape(10.dp))
-            .clip(RoundedCornerShape(10.dp))
-    ) {
-        val boxWidth = constraints.maxWidth.toFloat()
-        val boxHeight = constraints.maxHeight.toFloat()
-        Box(
-            Modifier.fillMaxSize().pointerInput(points, selectedNumbers, showNumberOverlay) {
-                detectTapGestures { tap ->
-                    nearestPoint(points, tap, boxWidth, boxHeight, thresholdPx)?.let(onTap)
-                }
-            }
-        ) {
-            Image(painterResource(R.drawable.whitechapel_board_base), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
-            if (showNumberOverlay) {
-                Image(painterResource(R.drawable.whitechapel_house_numbers_overlay), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
-            }
-            Canvas(Modifier.matchParentSize()) {
-                val radius = size.minDimension * 0.014f
-                selectedNumbers.forEach { number ->
-                    val point = points.firstOrNull { it.number == number } ?: return@forEach
-                    val center = Offset(point.normX * size.width, point.normY * size.height)
-                    drawCircle(color = selectionColor.copy(alpha = 0.22f), radius = radius * 1.6f, center = center)
-                    drawCircle(color = selectionColor, radius = radius * 1.55f, center = center, style = Stroke(width = radius * 0.45f))
-                }
-            }
-        }
-    }
+    ZoomableFeatureMap(
+        points = points,
+        showHouseNumbers = showNumberOverlay,
+        selected = selectedNumbers,
+        selectedColor = selectionColor,
+        onTap = onTap
+    )
 }
