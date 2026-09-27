@@ -261,7 +261,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
     }
 }
 
-@Composable private fun DigitalJackMove(o:JSONObject,houses:List<BoardPoint>,onCommitted:(Boolean)->Unit,onSave:()->Unit){
+@Composable private fun ColumnScope.DigitalJackMove(o:JSONObject,houses:List<BoardPoint>,onCommitted:(Boolean)->Unit,onSave:()->Unit){
     val night=o.optInt("night",1);val path=o.optJSONArray("jackPath")?:JSONArray();val current=if(path.length()>0)path.optInt(path.length()-1) else -1
     val moves=o.optJSONArray("jackMoves")?:JSONArray();val track=o.optInt("moveTrack",0)
     val coachMax=listOf(0,3,2,2,1).getOrElse(night){0};val alleyMax=listOf(0,2,2,1,1).getOrElse(night){0}
