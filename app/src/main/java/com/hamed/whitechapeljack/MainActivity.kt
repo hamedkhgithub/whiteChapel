@@ -13,6 +13,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -1134,4 +1136,104 @@ private fun BoardMap(
         selectedColor = selectionColor,
         onTap = onTap
     )
+}
+
+@Composable
+private fun ZoomableFeatureMap(
+    points: List<BoardPoint>,
+    showHouseNumbers: Boolean,
+    selected: Set<Int>,
+    selectedColor: Color,
+    onTap: (BoardPoint) -> Unit
+) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+        val newScale = (scale * zoomChange).coerceIn(1f, 6f)
+        scale = newScale
+        offset += panChange
+    }
+
+    BoxWithConstraints(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(BOARD_ASPECT_RATIO)
+            .clip(RoundedCornerShape(6.dp))
+    ) {
+        val mapWidth = constraints.maxWidth.toFloat()
+        val mapHeight = constraints.maxHeight.toFloat()
+
+        Box(
+            Modifier
+                .fillMaxSize()
+                .transformable(transformState)
+                .pointerInput(points, scale, offset) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            scale = 1f
+                            offset = Offset.Zero
+                        },
+                        onTap = { raw ->
+                            val local = Offset(
+                                (raw.x - offset.x) / scale,
+                                (raw.y - offset.y) / scale
+                            )
+                            var nearest: BoardPoint? = null
+                            var bestDistance = Float.MAX_VALUE
+                            points.forEach { point ->
+                                val dx = local.x - point.normX * mapWidth
+                                val dy = local.y - point.normY * mapHeight
+                                val distance = sqrt(dx * dx + dy * dy)
+                                if (distance < bestDistance) {
+                                    bestDistance = distance
+                                    nearest = point
+                                }
+                            }
+                            if (bestDistance <= 32f / scale) nearest?.let(onTap)
+                        }
+                    )
+                }
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = offset.x
+                        translationY = offset.y
+                        transformOrigin = TransformOrigin(0f, 0f)
+                    }
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.whitechapel_board_base),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.FillBounds
+                )
+                if (showHouseNumbers) {
+                    Image(
+                        painter = painterResource(R.drawable.whitechapel_house_numbers_overlay),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.FillBounds
+                    )
+                }
+                Canvas(Modifier.matchParentSize()) {
+                    val radius = size.minDimension * 0.013f
+                    selected.forEach { number ->
+                        points.firstOrNull { it.number == number }?.let { point ->
+                            val center = Offset(point.normX * size.width, point.normY * size.height)
+                            drawCircle(
+                                color = selectedColor,
+                                radius = radius * 1.55f,
+                                center = center,
+                                style = Stroke(width = radius * 0.42f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
