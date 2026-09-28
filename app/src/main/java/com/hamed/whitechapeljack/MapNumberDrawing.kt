@@ -42,8 +42,8 @@ internal fun DrawScope.drawHouseNumberBadges(
     offset: Offset,
     numberScale: Float
 ) {
-    // One constant circle size for every number. The base diameter is sized for a 3-digit label.
-    val diameter = 27.dp.toPx() * numberScale * scale
+    // One constant circle size for every number. Keep the badge compact but large enough for 3 digits.
+    val diameter = 22.dp.toPx() * numberScale * scale
     val radius = diameter / 2f
     val fontPx = 10.5.dp.toPx() * numberScale * scale
     val borderWidth = (0.8.dp.toPx() * numberScale * scale).coerceAtLeast(1f)
@@ -54,13 +54,19 @@ internal fun DrawScope.drawHouseNumberBadges(
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
 
+    val redHouseIds = setOf(3, 21, 27, 65, 84, 147, 149, 158)
+
     houses.forEach { point ->
         val center = Offset(
             (boardLeft + point.normX * boardWidth) * scale + offset.x,
             (boardTop + point.normY * boardHeight) * scale + offset.y
         )
-        drawCircle(Color.White.copy(alpha = .92f), radius, center)
-        drawCircle(Color.Black.copy(alpha = .45f), radius, center, style = Stroke(borderWidth))
+        val isRedHouse = point.number in redHouseIds
+        val badgeColor = if (isRedHouse) Color(0xFFD32F2F).copy(alpha = .94f) else Color.White.copy(alpha = .92f)
+        val badgeBorder = if (isRedHouse) Color(0xFF7A0C0C).copy(alpha = .85f) else Color.Black.copy(alpha = .45f)
+        paint.color = if (isRedHouse) android.graphics.Color.WHITE else android.graphics.Color.BLACK
+        drawCircle(badgeColor, radius, center)
+        drawCircle(badgeBorder, radius, center, style = Stroke(borderWidth))
         val baseline = center.y - (paint.ascent() + paint.descent()) / 2f
         drawContext.canvas.nativeCanvas.drawText(point.number.toString(), center.x, baseline, paint)
     }
