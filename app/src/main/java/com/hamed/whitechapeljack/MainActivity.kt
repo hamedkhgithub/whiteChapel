@@ -251,6 +251,7 @@ fun WhitechapelApp(store: GameStore) {
             "splash" -> Splash { page = "home" }
             "home" -> Home(
                 hasGame = store.exists(),
+                hasMapGame = DigitalGameStore.exists(appContext),
                 onNewGame = { page = "newgame" },
                 onContinue = { if (load()) page = if (gameOver) "audit" else "detective" },
                 onNewMapGame = { page = "newmap" },
@@ -363,12 +364,15 @@ private fun Splash(onDone: () -> Unit) {
 @Composable
 private fun Home(
     hasGame: Boolean,
+    hasMapGame: Boolean,
     onNewGame: () -> Unit,
     onContinue: () -> Unit,
     onNewMapGame: () -> Unit,
     onContinueMap: () -> Unit,
     onSettings: () -> Unit
 ) {
+    var pendingNewGame by remember { mutableStateOf<String?>(null) }
+
     Box(Modifier.fillMaxSize()) {
         Image(painterResource(R.drawable.home_background), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Color.Black.copy(.12f)))
@@ -377,17 +381,41 @@ private fun Home(
             if (TvServerInfo.url.isNotBlank()) {
                 Text("نمایش عمومی: ${TvServerInfo.url}", color = Gold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
             }
-            MenuButton("▶", "شروع بازی جدید", "کلاسیک • نیازمند صفحه بازی", true, onNewGame)
+            MenuButton("▶", "شروع بازی جدید", "کلاسیک • نیازمند صفحه بازی", true) {
+                if (hasGame) pendingNewGame = "classic" else onNewGame()
+            }
             Spacer(Modifier.height(10.dp))
             MenuButton("▰", "ادامه بازی کلاسیک", "ادامه بازی کلاسیک", hasGame, onContinue)
             Spacer(Modifier.height(10.dp))
-            MenuButton("⌖", "شروع بازی جدید با نقشه", "نقشه دیجیتال • بدون صفحه بازی", true, onNewMapGame)
+            MenuButton("⌖", "شروع بازی جدید با نقشه", "نقشه دیجیتال • بدون صفحه بازی", true) {
+                if (hasMapGame) pendingNewGame = "digital" else onNewMapGame()
+            }
             Spacer(Modifier.height(10.dp))
-            MenuButton("◉", "ادامه بازی با نقشه", "ادامه بازی با نقشه دیجیتال", true, onContinueMap)
+            MenuButton("◉", "ادامه بازی با نقشه", "ادامه بازی با نقشه دیجیتال", hasMapGame, onContinueMap)
             Spacer(Modifier.height(10.dp))
             MenuButton("⚙", "تنظیمات", "ظاهر گوشی و نمایش عمومی", true, onSettings)
             Spacer(Modifier.weight(.12f))
         }
+    }
+
+    if (pendingNewGame != null) {
+        AlertDialog(
+            onDismissRequest = { pendingNewGame = null },
+            title = { Text("شروع بازی جدید") },
+            text = {
+                Text("یک بازی ذخیره‌شده در حال حاضر وجود دارد. با شروع بازی جدید، بازی قبلی این حالت دیگر قابل ادامه دادن نخواهد بود. ادامه می‌دهید؟")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val target = pendingNewGame
+                    pendingNewGame = null
+                    if (target == "digital") onNewMapGame() else onNewGame()
+                }) { Text("قبول") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingNewGame = null }) { Text("لغو") }
+            }
+        )
     }
 }
 

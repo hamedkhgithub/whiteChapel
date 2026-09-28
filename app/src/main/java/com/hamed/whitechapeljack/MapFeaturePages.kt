@@ -304,7 +304,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                         setPublicMessage(o,"قتل در خانه ${victim.point} رخ داد؛ محل قتل ثبت شد و مرحله تعقیب آغاز شد.")
                         setPhase("HUNT_JACK_UNLOCK")
                     }
-                },Modifier.weight(1f),crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),primaryShape=MapMarkerShape.HEART)
+                },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=police.associate{it.point to policeColor(it,it.revealed)},crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),primaryShape=MapMarkerShape.HEART)
             }
             "HUNT_POLICE_HANDOFF"->Handoff("گوشی را به کارآگاه بدهید\nتعقیب شب سوم با پلیس آغاز می‌شود.\n"){setPhase("HUNT_POLICE_MOVE")}
             "HUNT_JACK_UNLOCK"->{
@@ -441,7 +441,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
     val moves=o.optJSONArray("jackMoves")?:JSONArray();val track=o.optInt("moveTrack",0);val moveLimit=(14+o.optInt("time",1)).coerceIn(15,19)
     val coachMax=listOf(0,3,2,2,1).getOrElse(night){0};val alleyMax=listOf(0,2,2,1,1).getOrElse(night){0}
     var coachUsed=0;var alleyUsed=0;for(i in 0 until moves.length()){when(moves.optJSONObject(i)?.optString("type")){"COACH"->coachUsed++;"ALLEY"->alleyUsed++}}
-    var type by remember{mutableStateOf(MoveType.NORMAL)};var first by remember{mutableStateOf<Int?>(null)};var second by remember{mutableStateOf<Int?>(null)};var registered by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")}
+    var type by remember{mutableStateOf(MoveType.NORMAL)};var first by remember{mutableStateOf<Int?>(null)};var second by remember{mutableStateOf<Int?>(null)};var registered by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")};var hideoutPopup by remember{mutableStateOf(false)}
     val crime=(o.optJSONArray("crime")?:JSONArray()).intSet();val clues=(o.optJSONArray("clues")?:JSONArray()).intSet()
     Text("محل شروع فرار به‌صورت خودکار از محل قتل ثبت شده است. موقعیت فعلی جک: $current",color=Color.White,fontSize=12.sp)
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){
@@ -468,7 +468,39 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
             }
         }
     },enabled=!registered,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=FBlood)){Text(if(registered)"حرکت ثبت شد" else "ثبت حرکت",fontWeight=FontWeight.Bold)}
-    Button(onClick={val end=if(type==MoveType.COACH)second?:first else first;onCommitted(type==MoveType.NORMAL && end==o.optInt("hideout"))},enabled=registered,modifier=Modifier.fillMaxWidth()){Text("تحویل به کارآگاه‌ها")}
+    Button(onClick={
+        val end=if(type==MoveType.COACH)second?:first else first
+        if(type==MoveType.NORMAL && end==o.optInt("hideout")) hideoutPopup=true else onCommitted(false)
+    },enabled=registered,modifier=Modifier.fillMaxWidth()){Text("تحویل به کارآگاه‌ها")}
+    if(hideoutPopup) DigitalHideoutDialog(
+        onEscape={hideoutPopup=false;onCommitted(true)},
+        onContinue={hideoutPopup=false;onCommitted(false)}
+    )
+}
+
+@Composable private fun DigitalHideoutDialog(onEscape:()->Unit,onContinue:()->Unit){
+    AlertDialog(
+        onDismissRequest={},
+        containerColor=Color(0xFF11100E),
+        title={Text("شما در مخفیگاه هستید",color=Color.White,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth(),fontWeight=FontWeight.Bold)},
+        text={
+            Column(horizontalAlignment=Alignment.CenterHorizontally){
+                Text("⌂",fontSize=66.sp,color=FGold)
+                Text("شما با حرکت عادی به مخفیگاه رسیده‌اید.",color=Color(0xFFF2DFC0),textAlign=TextAlign.Center)
+                Spacer(Modifier.height(18.dp))
+                Button(onClick=onEscape,modifier=Modifier.fillMaxWidth().height(56.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF075D2D)),shape=RoundedCornerShape(8.dp)){
+                    Text("⚑  اعلام فرار و پایان شب",fontWeight=FontWeight.Bold)
+                }
+                Spacer(Modifier.height(10.dp))
+                Button(onClick=onContinue,modifier=Modifier.fillMaxWidth().height(56.dp).border(1.dp,FGold,RoundedCornerShape(8.dp)),colors=ButtonDefaults.buttonColors(containerColor=Color(0xE91A1510)),shape=RoundedCornerShape(8.dp)){
+                    Text("→  اعلام نکن — ادامه بازی",color=FGold,fontWeight=FontWeight.Bold)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("اگر اعلام نکنید، در نوبت بعد باید از مخفیگاه خارج شوید.",color=Color(0xFFE07B68),fontSize=12.sp,textAlign=TextAlign.Center)
+            }
+        },
+        confirmButton={}
+    )
 }
 
 @Composable private fun PoliceActionSelector(real:List<DToken>,selected:Int,done:Set<Int>,onSelect:(Int)->Unit){
