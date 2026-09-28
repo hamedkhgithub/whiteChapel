@@ -300,7 +300,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                     }
                 },Modifier.weight(1f),crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),primaryShape=MapMarkerShape.HEART)
             }
-            "HUNT_POLICE_HANDOFF"->Handoff("گوشی را به کارآگاه بدهید\nتعقیب شب سوم با پلیس آغاز می‌شود.\nآماده‌اید؟"){setPhase("HUNT_POLICE_MOVE")}
+            "HUNT_POLICE_HANDOFF"->Handoff("گوشی را به کارآگاه بدهید\nتعقیب شب سوم با پلیس آغاز می‌شود.\n"){setPhase("HUNT_POLICE_MOVE")}
             "HUNT_JACK_UNLOCK"->{
                 DigitalJackUnlock(o.optString("pin"), onSuccess={setPhase("HUNT_JACK")})
             }
