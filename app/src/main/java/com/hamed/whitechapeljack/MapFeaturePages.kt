@@ -200,7 +200,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                 }else{
                     previousPolicePoints.size==5 && previousPolicePoints.all{it in occupiedPoints} && occupiedPoints.count{it in extraYellow}==2
                 }
-                TokenSelector(List(7){i->hc(phoneAppearance.policeColors[if(i<5)i else 5])},selectedId){selectedId=it;placementMessage=""}
+                TokenSelector(List(7){i->hc(phoneAppearance.policeColors[if(i<5)i else 5])},phoneAppearance.policeFillAlpha,selectedId){selectedId=it;placementMessage=""}
                 Text(
                     if(night==1) "هر ۷ گشت را روی هفت تقاطع زرد قرار بده. هویت ۵ گشت واقعی و ۲ گشت جعلی فقط برای کارآگاه معلوم است."
                     else "پنج گشت باید روی پنج موقعیت پایان شب قبل و دو گشت روی دو تقاطع زرد دیگر قرار بگیرند؛ هویت‌ها را می‌توانی دوباره مخلوط کنی.",
@@ -478,7 +478,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
             val disabled=token.id in done
             Surface(onClick={if(!disabled)onSelect(token.id)},enabled=!disabled,color=if(selected==token.id)Color(0xFF3A332B) else Color(0xFF1D1A17),shape=RoundedCornerShape(8.dp),border=androidx.compose.foundation.BorderStroke(if(selected==token.id)2.dp else 1.dp,if(selected==token.id)FGold else Color.DarkGray),modifier=Modifier.weight(1f).height(48.dp)){
                 Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
-                    Box(Modifier.width(34.dp).height(10.dp).background(hc(appearance.policeColor(token.id,token.real,true)).copy(alpha=if(disabled).28f else appearance.policeAlpha),RoundedCornerShape(8.dp)))
+                    Box(Modifier.width(34.dp).height(10.dp).background(hc(appearance.policeColor(token.id,token.real,true)).copy(alpha=if(disabled).28f else 1f),RoundedCornerShape(8.dp)))
                 }
             }
         }
@@ -510,14 +510,14 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
                 modifier = Modifier.weight(1f).height(56.dp)
             ){
                 Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
-                    Box(Modifier.size(32.dp).border(5.dp,color,RoundedCornerShape(50)))
+                    Box(Modifier.size(32.dp).background(color.copy(alpha=appearance.victimFillAlpha),RoundedCornerShape(50)).border(5.dp,color,RoundedCornerShape(50)))
                 }
             }
         }
     }
 }
 
-@Composable private fun TokenSelector(colors:List<Color>,selected:Int,onSelect:(Int)->Unit){
+@Composable private fun TokenSelector(colors:List<Color>,fillAlpha:Float,selected:Int,onSelect:(Int)->Unit){
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){
         colors.forEachIndexed{i,color->
             Surface(
@@ -526,7 +526,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
                 shape=RoundedCornerShape(8.dp),
                 border=androidx.compose.foundation.BorderStroke(if(selected==i+1)2.dp else 1.dp,if(selected==i+1)FGold else Color.DarkGray),
                 modifier=Modifier.weight(1f).height(44.dp)
-            ){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Box(Modifier.size(25.dp).border(4.dp,color,RoundedCornerShape(50)))}}
+            ){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Box(Modifier.size(25.dp).background(color.copy(alpha=fillAlpha),RoundedCornerShape(50)).border(4.dp,color,RoundedCornerShape(50)))}}
         }
     }
 }
@@ -553,7 +553,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
     val context=LocalContext.current
     val appearance=remember{AppearanceStore.load(context).phone}
     val baseBitmap=remember{BitmapFactory.decodeResource(context.resources,R.drawable.whitechapel_board_base).asImageBitmap()}
-    val numberBitmap=remember{BitmapFactory.decodeResource(context.resources,R.drawable.whitechapel_house_numbers_overlay).asImageBitmap()}
+    val houseNumberPoints=rememberHouseNumberPoints()
     var scale by remember{mutableFloatStateOf(1f)}
     var offset by remember{mutableStateOf(Offset.Zero)}
     // The pointerInput coroutine can outlive a recomposition. Keep the latest tap
@@ -602,7 +602,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
             val dl=bl*scale+offset.x;val dt=bt*scale+offset.y;val dw=bw*scale;val dh=bh*scale
             val dstOffset=IntOffset(dl.roundToInt(),dt.roundToInt());val dstSize=IntSize(dw.roundToInt().coerceAtLeast(1),dh.roundToInt().coerceAtLeast(1))
             drawImage(baseBitmap,IntOffset.Zero,IntSize(baseBitmap.width,baseBitmap.height),dstOffset,dstSize,filterQuality=FilterQuality.High)
-            if(numbers)drawImage(numberBitmap,IntOffset.Zero,IntSize(numberBitmap.width,numberBitmap.height),dstOffset,dstSize,filterQuality=FilterQuality.High)
+            if(numbers)drawHouseNumberBadges(houseNumberPoints,bl,bt,bw,bh,scale,offset,appearance.houseNumberScale)
 
             fun center(p:BoardPoint)=Offset((bl+p.normX*bw)*scale+offset.x,(bt+p.normY*bh)*scale+offset.y)
             // Police circles are about 10% larger on phone for better contrast over red crossings.
@@ -617,12 +617,26 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
             }
             markers.forEach{(n,col)->points.firstOrNull{it.number==n}?.let{p->
                 val c=center(p)
-                if(primaryShape==MapMarkerShape.HEART)drawPath(heartPath(c,12.dp.toPx()*appearance.victimSize),col.copy(alpha=col.alpha*appearance.victimAlpha),style=Stroke(stroke)) else drawCircle(col.copy(alpha=col.alpha*appearance.policeAlpha),policeRadius,c,style=Stroke(stroke))
+                if(primaryShape==MapMarkerShape.HEART){
+                    val heart=heartPath(c,12.dp.toPx()*appearance.victimSize)
+                    drawPath(heart,col.copy(alpha=appearance.victimFillAlpha))
+                    drawPath(heart,col,style=Stroke(stroke))
+                } else {
+                    drawCircle(col.copy(alpha=appearance.policeFillAlpha),policeRadius,c)
+                    drawCircle(col,policeRadius,c,style=Stroke(stroke))
+                }
                 if(n in active)drawCircle(FGold,policeRadius*1.30f,c,style=Stroke(2.dp.toPx()))
             }}
             secondaryMarkers.forEach{(n,col)->secondaryPoints.firstOrNull{it.number==n}?.let{p->
                 val c=center(p)
-                if(secondaryShape==MapMarkerShape.HEART)drawPath(heartPath(c,12.dp.toPx()*appearance.victimSize),col.copy(alpha=col.alpha*appearance.victimAlpha),style=Stroke(stroke)) else drawCircle(col.copy(alpha=col.alpha*appearance.policeAlpha),policeRadius,c,style=Stroke(stroke))
+                if(secondaryShape==MapMarkerShape.HEART){
+                    val heart=heartPath(c,12.dp.toPx()*appearance.victimSize)
+                    drawPath(heart,col.copy(alpha=appearance.victimFillAlpha))
+                    drawPath(heart,col,style=Stroke(stroke))
+                } else {
+                    drawCircle(col.copy(alpha=appearance.policeFillAlpha),policeRadius,c)
+                    drawCircle(col,policeRadius,c,style=Stroke(stroke))
+                }
                 if(n in secondaryActive)drawCircle(FGold,policeRadius*1.30f,c,style=Stroke(2.dp.toPx()))
             }}
 
@@ -634,7 +648,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
             val clueColor=hc(appearance.clueColor)
             cluePoints.forEach{n->overlayPoints.firstOrNull{it.number==n}?.let{p->
                 val c=center(p);val diamond=Path().apply{moveTo(c.x,c.y-clueHalf);lineTo(c.x+clueHalf,c.y);lineTo(c.x,c.y+clueHalf);lineTo(c.x-clueHalf,c.y);close()}
-                drawPath(diamond,clueColor.copy(alpha=.20f*appearance.clueAlpha));drawPath(diamond,clueColor.copy(alpha=appearance.clueAlpha),style=Stroke(2.5.dp.toPx()))
+                drawPath(diamond,clueColor.copy(alpha=appearance.clueFillAlpha));drawPath(diamond,clueColor,style=Stroke(2.5.dp.toPx()))
             }}
             // Jack's current position is private: this X is only requested by the Jack phone screen.
             jackPoint?.let{n->overlayPoints.firstOrNull{it.number==n}?.let{p->

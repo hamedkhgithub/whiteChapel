@@ -35,8 +35,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -248,10 +246,6 @@ fun WhitechapelApp(store: GameStore) {
         }
     }
 
-    val baseDensity = LocalDensity.current
-    CompositionLocalProvider(
-        LocalDensity provides Density(baseDensity.density, baseDensity.fontScale * appearance.phone.textScale)
-    ) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Gold, surface = Ink)) {
         when (page) {
             "splash" -> Splash { page = "home" }
@@ -337,7 +331,6 @@ fun WhitechapelApp(store: GameStore) {
             "unlock" -> UnlockPage(pinHash, onSuccess = { page = "jack" }, onCancel = { page = "detective" })
             "audit" -> AuditPage(hideout, starts, moves, queries, escaped.toSet(), police.toMap()) { store.clear(); page = "home" }
         }
-    }
     }
 }
 
@@ -1196,9 +1189,8 @@ private fun ZoomableFeatureMap(
     val baseBitmap = remember {
         BitmapFactory.decodeResource(context.resources, R.drawable.whitechapel_board_base).asImageBitmap()
     }
-    val numberBitmap = remember {
-        BitmapFactory.decodeResource(context.resources, R.drawable.whitechapel_house_numbers_overlay).asImageBitmap()
-    }
+    val houseNumberPoints = rememberHouseNumberPoints()
+    val phoneAppearance = remember { AppearanceStore.load(context).phone }
 
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -1300,13 +1292,15 @@ private fun ZoomableFeatureMap(
                 filterQuality = FilterQuality.High
             )
             if (showHouseNumbers) {
-                drawImage(
-                    image = numberBitmap,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(numberBitmap.width, numberBitmap.height),
-                    dstOffset = dstOffset,
-                    dstSize = dstSize,
-                    filterQuality = FilterQuality.High
+                drawHouseNumberBadges(
+                    houses = houseNumberPoints,
+                    boardLeft = boardLeft,
+                    boardTop = boardTop,
+                    boardWidth = boardW,
+                    boardHeight = boardH,
+                    scale = scale,
+                    offset = offset,
+                    numberScale = phoneAppearance.houseNumberScale
                 )
             }
 

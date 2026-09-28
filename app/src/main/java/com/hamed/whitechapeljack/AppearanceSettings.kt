@@ -1,13 +1,12 @@
 package com.hamed.whitechapeljack
 
 import android.content.Context
+import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -19,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -38,33 +38,35 @@ private const val DEFAULT_CLUE = "#F0C52B"
 data class DisplayAppearance(
     val policeColors: List<String> = DEFAULT_POLICE_COLORS,
     val policeSize: Float = 1f,
-    val policeAlpha: Float = 1f,
+    val policeFillAlpha: Float = 0.42f,
     val victimRealColor: String = DEFAULT_REAL_VICTIM,
     val victimFakeColor: String = DEFAULT_FAKE_VICTIM,
     val victimSize: Float = 1f,
-    val victimAlpha: Float = 1f,
+    val victimFillAlpha: Float = 0.42f,
     val clueColor: String = DEFAULT_CLUE,
     val clueSize: Float = 1f,
-    val clueAlpha: Float = 1f,
-    val textScale: Float = 1f
+    val clueFillAlpha: Float = 0.32f,
+    val houseNumberScale: Float = 1f
 ) {
     fun policeColor(tokenId: Int, real: Boolean, identityVisible: Boolean): String {
         if (!identityVisible || !real) return policeColors.getOrElse(5) { "#111111" }
-        return policeColors.getOrElse((tokenId - 1).coerceIn(0, 4)) { DEFAULT_POLICE_COLORS[(tokenId - 1).coerceIn(0, 4)] }
+        return policeColors.getOrElse((tokenId - 1).coerceIn(0, 4)) {
+            DEFAULT_POLICE_COLORS[(tokenId - 1).coerceIn(0, 4)]
+        }
     }
 
     fun toJson(): JSONObject = JSONObject()
         .put("policeColors", JSONArray().apply { policeColors.take(6).forEach(::put) })
         .put("policeSize", policeSize)
-        .put("policeAlpha", policeAlpha)
+        .put("policeFillAlpha", policeFillAlpha)
         .put("victimRealColor", victimRealColor)
         .put("victimFakeColor", victimFakeColor)
         .put("victimSize", victimSize)
-        .put("victimAlpha", victimAlpha)
+        .put("victimFillAlpha", victimFillAlpha)
         .put("clueColor", clueColor)
         .put("clueSize", clueSize)
-        .put("clueAlpha", clueAlpha)
-        .put("textScale", textScale)
+        .put("clueFillAlpha", clueFillAlpha)
+        .put("houseNumberScale", houseNumberScale)
 
     companion object {
         fun fromJson(o: JSONObject?): DisplayAppearance {
@@ -75,15 +77,16 @@ data class DisplayAppearance(
             return DisplayAppearance(
                 policeColors = colors,
                 policeSize = o.optDouble("policeSize", 1.0).toFloat().coerceIn(.5f, 2f),
-                policeAlpha = o.optDouble("policeAlpha", 1.0).toFloat().coerceIn(.2f, 1f),
+                policeFillAlpha = o.optDouble("policeFillAlpha", o.optDouble("policeAlpha", .42)).toFloat().coerceIn(.05f, 1f),
                 victimRealColor = o.optString("victimRealColor", DEFAULT_REAL_VICTIM),
                 victimFakeColor = o.optString("victimFakeColor", DEFAULT_FAKE_VICTIM),
                 victimSize = o.optDouble("victimSize", 1.0).toFloat().coerceIn(.5f, 2f),
-                victimAlpha = o.optDouble("victimAlpha", 1.0).toFloat().coerceIn(.2f, 1f),
+                victimFillAlpha = o.optDouble("victimFillAlpha", o.optDouble("victimAlpha", .42)).toFloat().coerceIn(.05f, 1f),
                 clueColor = o.optString("clueColor", DEFAULT_CLUE),
                 clueSize = o.optDouble("clueSize", 1.0).toFloat().coerceIn(.5f, 2f),
-                clueAlpha = o.optDouble("clueAlpha", 1.0).toFloat().coerceIn(.2f, 1f),
-                textScale = o.optDouble("textScale", 1.0).toFloat().coerceIn(.75f, 1.75f)
+                clueFillAlpha = o.optDouble("clueFillAlpha", o.optDouble("clueAlpha", .32)).toFloat().coerceIn(.05f, 1f),
+                // V3.1 used textScale for UI text. Migrate that value to house numbers instead.
+                houseNumberScale = o.optDouble("houseNumberScale", o.optDouble("textScale", 1.0)).toFloat().coerceIn(.6f, 1.8f)
             )
         }
     }
@@ -94,7 +97,8 @@ data class AppearanceSettings(
     val publicDisplay: DisplayAppearance = DisplayAppearance(
         policeSize = 1.15f,
         victimSize = 1.15f,
-        clueSize = 1.15f
+        clueSize = 1.15f,
+        houseNumberScale = 1.05f
     )
 )
 
@@ -131,11 +135,14 @@ object AppearanceStore {
     fun publicJson(ctx: Context): JSONObject = load(ctx).publicDisplay.toJson()
 }
 
-private fun parseColor(hex: String): Color = runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(Color.White)
+private fun parseColor(hex: String): Color = runCatching { Color(AndroidColor.parseColor(hex)) }.getOrDefault(Color.White)
 
-private val COLOR_CHOICES = listOf(
-    "#FFFFFF", "#111111", "#D32F2F", "#F9A825", "#F0C52B", "#2E7D32",
-    "#1976D2", "#00ACC1", "#7B1FA2", "#EC407A", "#FB8C00", "#6D4C41"
+private fun colorToHex(color: Int): String = String.format("#%06X", 0xFFFFFF and color)
+
+private val COLOR_PRESETS = listOf(
+    "#FFFFFF", "#111111", "#D32F2F", "#F9A825",
+    "#F0C52B", "#2E7D32", "#1976D2", "#00ACC1",
+    "#7B1FA2", "#EC407A", "#FB8C00", "#6D4C41"
 )
 
 @Composable
@@ -159,7 +166,14 @@ fun AppearanceSettingsPage(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("‹ بازگشت") }
-            Text("تنظیمات ظاهر", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            Text(
+                "تنظیمات ظاهر",
+                color = Color.White,
+                fontSize = 21.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center
+            )
             Spacer(Modifier.width(64.dp))
         }
 
@@ -168,7 +182,7 @@ fun AppearanceSettingsPage(
             FilterChip(selected = publicTab, onClick = { publicTab = true }, label = { Text("نمایش عمومی") }, modifier = Modifier.weight(1f))
         }
 
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SettingsCard("پلیس") {
                 Text("۵ رنگ پلیس واقعی + یک رنگ مشترک برای پلیس جعلی/مخفی", color = Color.LightGray, fontSize = 11.sp)
                 current.policeColors.take(6).forEachIndexed { index, value ->
@@ -183,24 +197,31 @@ fun AppearanceSettingsPage(
                     )
                 }
                 ScaleRow("اندازه پلیس", current.policeSize, .5f, 2f) { updateDisplay(current.copy(policeSize = it)) }
-                ScaleRow("شفافیت پلیس", current.policeAlpha, .2f, 1f, percentOnly = true) { updateDisplay(current.copy(policeAlpha = it)) }
+                ScaleRow("شفافیت داخل", current.policeFillAlpha, .05f, 1f) { updateDisplay(current.copy(policeFillAlpha = it)) }
             }
 
             SettingsCard("قربانی") {
                 ColorSettingRow("قربانی واقعی", current.victimRealColor) { updateDisplay(current.copy(victimRealColor = it)) }
                 ColorSettingRow("قربانی جعلی / مخفی", current.victimFakeColor) { updateDisplay(current.copy(victimFakeColor = it)) }
                 ScaleRow("اندازه قربانی", current.victimSize, .5f, 2f) { updateDisplay(current.copy(victimSize = it)) }
-                ScaleRow("شفافیت قربانی", current.victimAlpha, .2f, 1f, percentOnly = true) { updateDisplay(current.copy(victimAlpha = it)) }
+                ScaleRow("شفافیت داخل", current.victimFillAlpha, .05f, 1f) { updateDisplay(current.copy(victimFillAlpha = it)) }
             }
 
             SettingsCard("سرنخ") {
                 ColorSettingRow("رنگ سرنخ", current.clueColor) { updateDisplay(current.copy(clueColor = it)) }
                 ScaleRow("اندازه سرنخ", current.clueSize, .5f, 2f) { updateDisplay(current.copy(clueSize = it)) }
-                ScaleRow("شفافیت سرنخ", current.clueAlpha, .2f, 1f, percentOnly = true) { updateDisplay(current.copy(clueAlpha = it)) }
+                ScaleRow("شفافیت داخل", current.clueFillAlpha, .05f, 1f) { updateDisplay(current.copy(clueFillAlpha = it)) }
             }
 
-            SettingsCard("نوشته‌ها") {
-                ScaleRow("اندازه نوشته‌ها", current.textScale, .75f, 1.75f) { updateDisplay(current.copy(textScale = it)) }
+            SettingsCard("شماره خانه‌ها") {
+                Text(
+                    "همه شماره‌ها روی دایره سفید هم‌اندازه نمایش داده می‌شوند.",
+                    color = Color.LightGray,
+                    fontSize = 11.sp
+                )
+                ScaleRow("اندازه شماره‌ها", current.houseNumberScale, .6f, 1.8f) {
+                    updateDisplay(current.copy(houseNumberScale = it))
+                }
             }
         }
 
@@ -226,20 +247,86 @@ private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> U
 
 @Composable
 private fun ColorSettingRow(title: String, value: String, onChange: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
-            Box(Modifier.size(24.dp).background(parseColor(value), CircleShape).border(1.dp, Color.White.copy(.55f), CircleShape))
-        }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            COLOR_CHOICES.forEach { hex ->
-                val selected = hex.equals(value, ignoreCase = true)
-                Box(
-                    Modifier.size(if (selected) 30.dp else 26.dp)
-                        .background(parseColor(hex), CircleShape)
-                        .border(if (selected) 3.dp else 1.dp, if (selected) Color(0xFFD6AD63) else Color.Gray, CircleShape)
-                        .clickable { onChange(hex) }
-                )
+    var open by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().clickable { open = true }.padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+        Text(value.uppercase(), color = Color.LightGray, fontSize = 11.sp)
+        Spacer(Modifier.width(8.dp))
+        Box(
+            Modifier.size(30.dp)
+                .background(parseColor(value), CircleShape)
+                .border(2.dp, Color.White.copy(.65f), CircleShape)
+        )
+    }
+    if (open) {
+        ColorPickerDialog(
+            initialHex = value,
+            onDismiss = { open = false },
+            onConfirm = { onChange(it); open = false }
+        )
+    }
+}
+
+@Composable
+private fun ColorPickerDialog(initialHex: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    val initialInt = remember(initialHex) { runCatching { AndroidColor.parseColor(initialHex) }.getOrDefault(AndroidColor.WHITE) }
+    val initialHsv = remember(initialInt) { FloatArray(3).also { AndroidColor.colorToHSV(initialInt, it) } }
+    var hue by remember(initialHex) { mutableFloatStateOf(initialHsv[0]) }
+    var saturation by remember(initialHex) { mutableFloatStateOf(initialHsv[1]) }
+    var value by remember(initialHex) { mutableFloatStateOf(initialHsv[2]) }
+    val selectedInt = AndroidColor.HSVToColor(floatArrayOf(hue, saturation, value))
+    val selectedHex = colorToHex(selectedInt)
+    val selectedColor = Color(selectedInt)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = Color(0xFF211C18),
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 8.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("انتخاب رنگ", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(54.dp).background(selectedColor, CircleShape).border(2.dp, Color.White.copy(.7f), CircleShape))
+                    Spacer(Modifier.width(12.dp))
+                    Text(selectedHex, color = Color.White, fontSize = 14.sp)
+                }
+
+                Text("رنگ", color = Color.LightGray, fontSize = 12.sp)
+                Slider(value = hue, onValueChange = { hue = it }, valueRange = 0f..360f)
+                Text("اشباع", color = Color.LightGray, fontSize = 12.sp)
+                Slider(value = saturation, onValueChange = { saturation = it }, valueRange = 0f..1f)
+                Text("روشنایی", color = Color.LightGray, fontSize = 12.sp)
+                Slider(value = value, onValueChange = { value = it }, valueRange = 0f..1f)
+
+                Text("رنگ‌های آماده", color = Color.LightGray, fontSize = 12.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    COLOR_PRESETS.chunked(6).forEach { row ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            row.forEach { hex ->
+                                Box(
+                                    Modifier.size(34.dp)
+                                        .background(parseColor(hex), CircleShape)
+                                        .border(1.dp, Color.White.copy(.55f), CircleShape)
+                                        .clickable {
+                                            val c = AndroidColor.parseColor(hex)
+                                            val hsv = FloatArray(3).also { AndroidColor.colorToHSV(c, it) }
+                                            hue = hsv[0]; saturation = hsv[1]; value = hsv[2]
+                                        }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("لغو") }
+                    Button(onClick = { onConfirm(selectedHex) }) { Text("تأیید") }
+                }
             }
         }
     }
@@ -251,7 +338,6 @@ private fun ScaleRow(
     value: Float,
     min: Float,
     max: Float,
-    percentOnly: Boolean = false,
     onChange: (Float) -> Unit
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
