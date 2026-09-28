@@ -28,12 +28,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
@@ -75,7 +77,16 @@ object DigitalGameStore {
         val pa=JSONArray();val police=o.optJSONArray("police")?:JSONArray();for(i in 0 until police.length()){val x=police.getJSONObject(i);pp[x.getInt("point")]?.let{p->val item=JSONObject().put("x",p.normX).put("y",p.normY).put("revealed",x.optBoolean("revealed",false)).put("real",x.optBoolean("real",true)).put("id",x.optInt("id",1));pa.put(item)}}
         val ca=JSONArray();val crimes=o.optJSONArray("crime")?:JSONArray();val currentCrimes=currentCrimePoints(o);for(i in 0 until crimes.length()){val crimeId=crimes.getInt(i);houses[crimeId]?.let{p->ca.put(JSONObject().put("x",p.normX).put("y",p.normY).put("current",crimeId in currentCrimes))}}
         val cla=JSONArray();val clues=o.optJSONArray("clues")?:JSONArray();for(i in 0 until clues.length()){houses[clues.getInt(i)]?.let{p->cla.put(JSONObject().put("x",p.normX).put("y",p.normY))}}
-        pub.put("women",wa).put("digitalPolice",pa).put("crime",ca).put("clues",cla).put("appearance",publicAppearance.toJson()).put("publicMessage",o.optString("publicMessage","")).put("publicPhase",publicPhaseName(o.optString("phase")));TvMapHub.setState(pub)
+        val moveSpecials=JSONArray();var usedTrack=0;val jackMoves=o.optJSONArray("jackMoves")?:JSONArray()
+        for(i in 0 until jackMoves.length()){
+            val type=jackMoves.optJSONObject(i)?.optString("type").orEmpty()
+            val cost=if(type=="COACH")2 else 1
+            if(type=="COACH" || type=="ALLEY") moveSpecials.put(JSONObject().put("type",type).put("from",usedTrack+1).put("to",usedTrack+cost))
+            usedTrack+=cost
+        }
+        pub.put("women",wa).put("digitalPolice",pa).put("crime",ca).put("clues",cla)
+            .put("moveTrack",o.optInt("moveTrack",0)).put("moveSpecials",moveSpecials)
+            .put("appearance",publicAppearance.toJson()).put("publicMessage",o.optString("publicMessage","")).put("publicPhase",publicPhaseName(o.optString("phase")));TvMapHub.setState(pub)
     }
 }
 
@@ -83,6 +94,50 @@ private fun JSONArray.tokens():MutableList<DToken>{val r=mutableListOf<DToken>()
 private fun List<DToken>.json():JSONArray{val a=JSONArray();forEach{a.put(JSONObject().put("id",it.id).put("point",it.point).put("color",it.color).put("real",it.real).put("revealed",it.revealed))};return a}
 private fun womenCounts(n:Int)=when(n){1->8 to 5;2->7 to 4;3->6 to 3;else->4 to 1}
 private fun roman(n:Int)=listOf("","I","II","III","IV","V").getOrElse(n){n.toString()}
+private val MOVE_TRACK_LABELS = listOf("V","IV","III","II","I") + (1..15).map(Int::toString)
+private fun moveTrackStartIndex(time:Int)=(5-time.coerceIn(1,5)).coerceIn(0,4)
+private fun isHuntingPhase(phase:String)=phase.startsWith("HUNT_") || phase.startsWith("GAME_OVER")
+
+private data class MoveTrackVisual(
+    val currentPointId:Int,
+    val alleyPointIds:Set<Int>,
+    val coachPointPairs:List<Pair<Int,Int>>
+)
+
+private fun moveTrackVisual(o:JSONObject):MoveTrackVisual{
+    val time=o.optInt("time",1).coerceIn(1,5)
+    val phase=o.optString("phase")
+    val hunting=isHuntingPhase(phase)
+    val start=moveTrackStartIndex(time)
+    val used=if(hunting)o.optInt("moveTrack",0).coerceAtLeast(0) else 0
+    val currentIndex=(start+used).coerceIn(0,MOVE_TRACK_LABELS.lastIndex)
+    val alley=mutableSetOf<Int>()
+    val coach=mutableListOf<Pair<Int,Int>>()
+    if(hunting){
+        var cursor=0
+        val moves=o.optJSONArray("jackMoves")?:JSONArray()
+        for(i in 0 until moves.length()){
+            when(moves.optJSONObject(i)?.optString("type")){
+                "COACH"->{
+                    val a=start+cursor+1
+                    val b=start+cursor+2
+                    if(a in MOVE_TRACK_LABELS.indices && b in MOVE_TRACK_LABELS.indices) coach += (a+1) to (b+1)
+                    cursor+=2
+                }
+                "ALLEY"->{
+                    val a=start+cursor+1
+                    if(a in MOVE_TRACK_LABELS.indices) alley += a+1
+                    cursor+=1
+                }
+                else->cursor+=1
+            }
+        }
+    }
+    // move_track_points.json uses IDs 1..20 from left to right:
+    // V, IV, III, II, I, 1 ... 15.
+    return MoveTrackVisual(currentIndex+1,alley,coach)
+}
+
 private fun publicPhaseName(phase:String)=when(phase){
     "HELL_WOMEN"->"آماده‌سازی • جانمایی قربانی‌ها"
     "HELL_POLICE"->"آماده‌سازی • جانمایی پلیس"
@@ -106,6 +161,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
     val o=remember(rev){DigitalGameStore.load(ctx)}
     if(o==null){Column(Modifier.fillMaxSize().background(Color(0xFF100E0C)).padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("بازی با نقشه‌ای ذخیره نشده است.",color=Color.White);Button(onClick=onBack){Text("بازگشت")}};return}
     val phase=o.optString("phase");val night=o.optInt("night",1);val time=o.optInt("time",1);val women=o.optJSONArray("women")!!.tokens();val police=o.optJSONArray("police")!!.tokens()
+    val trackVisual=moveTrackVisual(o)
     val phoneAppearance=remember(rev){AppearanceStore.load(ctx).phone}
     fun policeColor(token:DToken, identityVisible:Boolean=true)=hc(phoneAppearance.policeColor(token.id,token.real,identityVisible))
     fun victimColor(token:DToken, identityVisible:Boolean=true)=hc(if(identityVisible && token.real) phoneAppearance.victimRealColor else phoneAppearance.victimFakeColor)
@@ -143,6 +199,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                 Text(message,color=Color(0xFFFFF3C4),fontSize=11.sp,textAlign=TextAlign.Center,modifier=Modifier.padding(horizontal=8.dp,vertical=5.dp))
             }
         }
+        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(6.dp)){
         when(phase){
             "HELL_WOMEN"->{
                 val (total,realTarget)=womenCounts(night)
@@ -185,7 +242,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                     }
                     o.put("women", list.json())
                     save()
-                },Modifier.weight(1f),crimePoints=previousCrimeScenes,currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART)
+                },Modifier.weight(1f),crimePoints=previousCrimeScenes,currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART,moveTrackVisual=trackVisual)
                 Button(onClick={setPhase("HAND_POLICE")},enabled=realCount==realTarget && fakeCount==fakeTarget,modifier=Modifier.fillMaxWidth()){Text("تحویل به کارآگاه")}
             }
             "HAND_POLICE"->Handoff("گوشی را به کارآگاه بدهید"){setPhase("HELL_POLICE")}
@@ -235,7 +292,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                             o.put("police",list.json());save()
                         }
                     }
-                },Modifier.weight(1f),secondaryPoints=hp,secondaryMarkers=women.associate{it.point to victimColor(it,false)},secondaryShape=MapMarkerShape.HEART,overlayPoints=hp,requiredPoints=if(night>1)previousPolicePoints else emptySet())
+                },Modifier.weight(1f),secondaryPoints=hp,secondaryMarkers=women.associate{it.point to victimColor(it,false)},secondaryShape=MapMarkerShape.HEART,overlayPoints=hp,requiredPoints=if(night>1)previousPolicePoints else emptySet(),moveTrackVisual=trackVisual)
                 Button(onClick={setPhase("HAND_JACK")},enabled=setupValid,modifier=Modifier.fillMaxWidth()){Text("تحویل به جک")}
             }
             "HAND_JACK"->Handoff("گوشی را به جک بدهید") {val realWomen=women.filter{it.real};o.put("women",realWomen.json()).put("time",1);setPublicMessage(o,"قربانی‌های جعلی حذف شدند و قربانی‌های واقعی روی نقشه باقی ماندند.");setPhase("HELL_DECISION")}
@@ -257,7 +314,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                         movingTokenId==null && tokenAtPoint!=null->{movingTokenId=tokenAtPoint.id;pendingPoint=null}
                         movingTokenId!=null && tokenAtPoint==null && p.number !in (o.optJSONArray("crime")?:JSONArray()).intSet()->{pendingPoint=p.number}
                     }
-                },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=police.associate{it.point to policeColor(it,true)},crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART)
+                },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=police.associate{it.point to policeColor(it,true)},crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART,moveTrackVisual=trackVisual)
                 Button(onClick={
                     val committed=women.toMutableList();if(movingTokenId!=null && pendingPoint!=null){val k=committed.indexOfFirst{it.id==movingTokenId};if(k>=0)committed[k]=committed[k].copy(point=pendingPoint!!)}
                     o.put("women",committed.json()).put("phase","HELL_REVEAL_POLICE");movingTokenId=null;pendingPoint=null;save()
@@ -280,7 +337,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                         o.put("police",list.json())
                         setPhase("HELL_DECISION")
                     }
-                },Modifier.weight(1f),secondaryPoints=hp,secondaryMarkers=women.associate{it.point to victimColor(it,true)},secondaryShape=MapMarkerShape.HEART,overlayPoints=hp,crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o))
+                },Modifier.weight(1f),secondaryPoints=hp,secondaryMarkers=women.associate{it.point to victimColor(it,true)},secondaryShape=MapMarkerShape.HEART,overlayPoints=hp,crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),moveTrackVisual=trackVisual)
             }
             "HELL_KILL"->{
                 val firstDoubleKill=o.optInt("doubleKillFirst",-1).takeIf{it>0}
@@ -320,7 +377,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                         setPublicMessage(o,"قتل در خانه ${victim.point} رخ داد؛ محل قتل ثبت شد و مرحله تعقیب آغاز شد.")
                         setPhase("HUNT_JACK_UNLOCK")
                     }
-                },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=police.associate{it.point to policeColor(it,it.revealed)},crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART)
+                },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=police.associate{it.point to policeColor(it,it.revealed)},crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART,moveTrackVisual=trackVisual)
             }
             "HUNT_POLICE_HANDOFF"->Handoff("گوشی را به کارآگاه بدهید\nتعقیب شب سوم با پلیس آغاز می‌شود.\n"){setPhase("HUNT_POLICE_MOVE")}
             "HUNT_JACK_UNLOCK"->{
@@ -358,7 +415,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                         movingTokenId==null && tokenAtPoint!=null->{movingTokenId=tokenAtPoint.id;pendingPoint=null}
                         movingTokenId!=null && tokenAtPoint==null->{pendingPoint=p.number}
                     }
-                },Modifier.weight(1f),overlayPoints=hp,crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),cluePoints=(o.optJSONArray("clues")?:JSONArray()).intSet())
+                },Modifier.weight(1f),overlayPoints=hp,crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),cluePoints=(o.optJSONArray("clues")?:JSONArray()).intSet(),moveTrackVisual=trackVisual)
                 Button(onClick={
                     val committed=police.toMutableList();if(movingTokenId!=null && pendingPoint!=null){val k=committed.indexOfFirst{it.id==movingTokenId};if(k>=0)committed[k]=committed[k].copy(point=pendingPoint!!,revealed=true)}
                     o.put("police",committed.json()).put("policeDone",JSONArray()).put("policeSearched",JSONArray()).put("policeIndex",0).put("phase","HUNT_POLICE_ACTION");setPublicMessage(o,"حرکت پلیس‌ها پایان یافت؛ مرحله سرنخ و دستگیری آغاز شد.");movingTokenId=null;pendingPoint=null;save()
@@ -405,13 +462,14 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                             }
                         }
                         save()
-                    },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=real.associate{it.point to policeColor(it,true)},secondaryActive=if(activeId==0) emptySet() else setOf(real.firstOrNull{it.id==activeId}?.point?:-1),crimePoints=crimes,currentCrimePoints=currentCrimePoints(o),cluePoints=clues)
+                    },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=real.associate{it.point to policeColor(it,true)},secondaryActive=if(activeId==0) emptySet() else setOf(real.firstOrNull{it.id==activeId}?.point?:-1),crimePoints=crimes,currentCrimePoints=currentCrimePoints(o),cluePoints=clues,moveTrackVisual=trackVisual)
                     if(action=="search" && activeId!=0 && activeId !in doneIds) OutlinedButton(onClick={markPoliceDone(o,activeId);resultMessage="استعلام‌های سرنخ این پلیس تمام شد؛ این پلیس برای این نوبت غیرفعال شد.";setPublicMessage(o,"استعلام‌های سرنخ یک پلیس پایان یافت.");save()},modifier=Modifier.fillMaxWidth()){Text("پایان استعلام‌های این پلیس")}
                     Button(onClick={setPublicMessage(o,"نوبت کارآگاه‌ها پایان یافت؛ نوبت جک آغاز شد.");setPhase("HUNT_JACK_UNLOCK")},modifier=Modifier.fillMaxWidth()){Text("تحویل به جک")}
                 }
             }
             "GAME_OVER_POLICE"->CenterMessage("جک دستگیر شد • کارآگاه‌ها برنده شدند",onBack)
             "GAME_OVER_JACK"->CenterMessage("جک بازی را به پایان رساند",onBack)
+        }
         }
     }
 }
@@ -501,7 +559,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
     if(error.isNotBlank())Text(error,color=Color(0xFFFF8A80),fontSize=12.sp)
     GameMap(houses,true,emptyMap(),emptySet(),{p->
         if(!registered){if(type==MoveType.COACH){if(first==null)first=p.number else second=p.number}else first=p.number;error=""}
-    },Modifier.weight(1f),secondaryPoints=policePoints,secondaryMarkers=publicPolice.associate{it.point to hc(AppearanceStore.load(LocalContext.current).phone.policeColor(it.id,it.real,true))},crimePoints=crime,currentCrimePoints=currentCrimePoints(o),cluePoints=clues,jackPoint=current)
+    },Modifier.weight(1f),secondaryPoints=policePoints,secondaryMarkers=publicPolice.associate{it.point to hc(AppearanceStore.load(LocalContext.current).phone.policeColor(it.id,it.real,true))},crimePoints=crime,currentCrimePoints=currentCrimePoints(o),cluePoints=clues,jackPoint=current,moveTrackVisual=moveTrackVisual(o))
     Button(onClick={
         val a=first;val b=second;val cost=if(type==MoveType.COACH)2 else 1
         when{
@@ -612,6 +670,24 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
 @Composable private fun TvLinkCard(){val u=TvServerInfo.url.ifBlank{"در حال ساخت لینک…"};Surface(color=Color(0xFF241E18),shape=RoundedCornerShape(8.dp),modifier=Modifier.fillMaxWidth()){Text("نمایش عمومی: $u",color=FGold,fontSize=11.sp,textAlign=TextAlign.Center,modifier=Modifier.padding(5.dp))}}
 @Composable private fun rememberBoardPointsFeature(file:String):List<BoardPoint>{val c=LocalContext.current;return remember(file){val a=JSONArray(c.assets.open(file).bufferedReader().use{it.readText()});List(a.length()){i->val x=a.getJSONObject(i);BoardPoint(x.optInt("id",i+1),x.getInt("x"),x.getInt("y"),x.getDouble("norm_x").toFloat(),x.getDouble("norm_y").toFloat(),x.getInt("number"))}}}
 
+
+private data class MoveTrackPoint(val id:Int,val normX:Float,val normY:Float)
+
+@Composable private fun rememberMoveTrackPoints():List<MoveTrackPoint>{
+    val c=LocalContext.current
+    return remember{
+        val a=JSONArray(c.assets.open("move_track_points.json").bufferedReader().use{it.readText()})
+        List(a.length()){i->
+            val x=a.getJSONObject(i)
+            MoveTrackPoint(
+                id=x.optInt("id",i+1),
+                normX=x.getDouble("norm_x").toFloat(),
+                normY=x.getDouble("norm_y").toFloat()
+            )
+        }
+    }
+}
+
 @Composable private fun GameMap(
     points:List<BoardPoint>,
     numbers:Boolean,
@@ -629,12 +705,15 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
     primaryShape:MapMarkerShape = MapMarkerShape.CIRCLE,
     secondaryShape:MapMarkerShape = MapMarkerShape.CIRCLE,
     jackPoint:Int? = null,
-    requiredPoints:Set<Int> = emptySet()
+    requiredPoints:Set<Int> = emptySet(),
+    moveTrackVisual:MoveTrackVisual? = null
 ){
     val context=LocalContext.current
     val appearance=remember{AppearanceStore.load(context).phone}
     val baseBitmap=remember{BitmapFactory.decodeResource(context.resources,R.drawable.whitechapel_board_base).asImageBitmap()}
+    val jackTrackBitmap=remember{BitmapFactory.decodeResource(context.resources,R.drawable.jack_track_token).asImageBitmap()}
     val houseNumberPoints=rememberHouseNumberPoints()
+    val moveTrackPoints=rememberMoveTrackPoints()
     var scale by remember{mutableFloatStateOf(1f)}
     var offset by remember{mutableStateOf(Offset.Zero)}
     // The pointerInput coroutine can outlive a recomposition. Keep the latest tap
@@ -748,6 +827,70 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
                 drawLine(Color(0xFFE53935),Offset(c.x-r,c.y-r),Offset(c.x+r,c.y+r),strokeWidth=sw)
                 drawLine(Color(0xFFE53935),Offset(c.x+r,c.y-r),Offset(c.x-r,c.y+r),strokeWidth=sw)
             }}
+
+            // Public Move Track markers are drawn directly over the printed track on the board.
+            // Point IDs 1..20 map to V, IV, III, II, I, 1..15.
+            moveTrackVisual?.let{tv->
+                fun trackCenter(id:Int):Offset?=moveTrackPoints.firstOrNull{it.id==id}?.let{p->
+                    Offset((bl+p.normX*bw)*scale+offset.x,(bt+p.normY*bh)*scale+offset.y)
+                }
+                val boardPxScale=(dw/1536f).coerceAtLeast(0.01f)
+
+                // Alley token: compact red diamond centered on the consumed Move Track space.
+                tv.alleyPointIds.forEach{id->trackCenter(id)?.let{c->
+                    val r=15f*boardPxScale
+                    val diamond=Path().apply{
+                        moveTo(c.x,c.y-r);lineTo(c.x+r,c.y);lineTo(c.x,c.y+r);lineTo(c.x-r,c.y);close()
+                    }
+                    drawPath(diamond,Color(0xFFD32626))
+                    drawPath(diamond,Color(0xFF2A1712),style=Stroke((2.5f*boardPxScale).coerceAtLeast(1f)))
+                    val inner=r*.47f
+                    drawLine(Color(0xFFFFD7C7),Offset(c.x-inner,c.y+inner),Offset(c.x+inner,c.y-inner),strokeWidth=(2.4f*boardPxScale).coerceAtLeast(1f))
+                }}
+
+                // Coach token: one elongated token spanning exactly two consecutive Move Track spaces.
+                tv.coachPointPairs.forEach{(a,b)->
+                    val c1=trackCenter(a);val c2=trackCenter(b)
+                    if(c1!=null && c2!=null){
+                        val mid=Offset((c1.x+c2.x)/2f,(c1.y+c2.y)/2f)
+                        val extra=17f*boardPxScale
+                        val width=kotlin.math.abs(c2.x-c1.x)+extra*2f
+                        val height=31f*boardPxScale
+                        drawRoundRect(
+                            color=Color(0xFFD6AD63),
+                            topLeft=Offset(mid.x-width/2f,mid.y-height/2f),
+                            size=Size(width,height),
+                            cornerRadius=androidx.compose.ui.geometry.CornerRadius(height*.28f,height*.28f)
+                        )
+                        drawRoundRect(
+                            color=Color(0xFF24170D),
+                            topLeft=Offset(mid.x-width/2f,mid.y-height/2f),
+                            size=Size(width,height),
+                            cornerRadius=androidx.compose.ui.geometry.CornerRadius(height*.28f,height*.28f),
+                            style=Stroke((2.5f*boardPxScale).coerceAtLeast(1f))
+                        )
+                        val wheelR=5f*boardPxScale
+                        drawCircle(Color(0xFF24170D),wheelR,Offset(mid.x-width*.28f,mid.y+height*.38f))
+                        drawCircle(Color(0xFF24170D),wheelR,Offset(mid.x+width*.28f,mid.y+height*.38f))
+                        drawLine(Color(0xFF24170D),Offset(mid.x-width*.22f,mid.y),Offset(mid.x+width*.20f,mid.y-height*.18f),strokeWidth=(3f*boardPxScale).coerceAtLeast(1f))
+                    }
+                }
+
+                // Jack token stays above special-move tokens so the current position remains obvious.
+                trackCenter(tv.currentPointId)?.let{c->
+                    val sizePx=36f*boardPxScale
+                    drawCircle(Color(0xFFD7D7D7),sizePx*.54f,c)
+                    drawImage(
+                        image=jackTrackBitmap,
+                        srcOffset=IntOffset.Zero,
+                        srcSize=IntSize(jackTrackBitmap.width,jackTrackBitmap.height),
+                        dstOffset=IntOffset((c.x-sizePx/2f).roundToInt(),(c.y-sizePx/2f).roundToInt()),
+                        dstSize=IntSize(sizePx.roundToInt().coerceAtLeast(1),sizePx.roundToInt().coerceAtLeast(1)),
+                        filterQuality=FilterQuality.High
+                    )
+                    drawCircle(Color(0xFF2B2B2B),sizePx*.52f,c,style=Stroke((2f*boardPxScale).coerceAtLeast(1f)))
+                }
+            }
         }
     }
 }
