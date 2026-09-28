@@ -213,6 +213,19 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                     when{
                         p.number !in allowedPoints -> placementMessage=if(night==1) "این نقطه تقاطع زرد نیست." else "این نقطه جزو پنج موقعیت پایان شب قبل یا تقاطع‌های زرد مجاز نیست."
                         occupiedByOther -> placementMessage="این تقاطع قبلاً توسط یک گشت دیگر اشغال شده است."
+                        night>1 && p.number in extraYellow -> {
+                            val projectedExtraCount=(list.filter{it.id!=selectedId}.map{it.point}+p.number).count{it in extraYellow}
+                            if(projectedExtraCount>2){
+                                placementMessage="فقط دو گشت می‌توانند روی دو تقاطع زرد جدید قرار بگیرند. پنج گشت دیگر باید روی پنج محل مشخص‌شده با حلقه طلایی باشند."
+                            }else{
+                                placementMessage=""
+                                val color=phoneAppearance.policeColors[if(selectedId<=5) selectedId-1 else 5]
+                                val t=DToken(selectedId,p.number,color,selectedId<=5,false)
+                                val k=list.indexOfFirst{it.id==selectedId}
+                                if(k>=0)list[k]=t else list+=t
+                                o.put("police",list.json());save()
+                            }
+                        }
                         else -> {
                             placementMessage=""
                             val color=phoneAppearance.policeColors[if(selectedId<=5) selectedId-1 else 5]
@@ -222,7 +235,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                             o.put("police",list.json());save()
                         }
                     }
-                },Modifier.weight(1f),secondaryPoints=hp,secondaryMarkers=women.associate{it.point to victimColor(it,false)},secondaryShape=MapMarkerShape.HEART,overlayPoints=hp)
+                },Modifier.weight(1f),secondaryPoints=hp,secondaryMarkers=women.associate{it.point to victimColor(it,false)},secondaryShape=MapMarkerShape.HEART,overlayPoints=hp,requiredPoints=if(night>1)previousPolicePoints else emptySet())
                 Button(onClick={setPhase("HAND_JACK")},enabled=setupValid,modifier=Modifier.fillMaxWidth()){Text("تحویل به جک")}
             }
             "HAND_JACK"->Handoff("گوشی را به جک بدهید") {val realWomen=women.filter{it.real};o.put("women",realWomen.json()).put("time",1);setPublicMessage(o,"قربانی‌های جعلی حذف شدند و قربانی‌های واقعی روی نقشه باقی ماندند.");setPhase("HELL_DECISION")}
@@ -580,7 +593,8 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
     cluePoints:Set<Int> = emptySet(),
     primaryShape:MapMarkerShape = MapMarkerShape.CIRCLE,
     secondaryShape:MapMarkerShape = MapMarkerShape.CIRCLE,
-    jackPoint:Int? = null
+    jackPoint:Int? = null,
+    requiredPoints:Set<Int> = emptySet()
 ){
     val context=LocalContext.current
     val appearance=remember{AppearanceStore.load(context).phone}
@@ -639,6 +653,12 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
             fun center(p:BoardPoint)=Offset((bl+p.normX*bw)*scale+offset.x,(bt+p.normY*bh)*scale+offset.y)
             // Police circles are about 10% larger on phone for better contrast over red crossings.
             val policeRadius=12.dp.toPx()*appearance.policeSize;val stroke=3.dp.toPx()
+            // During police setup on nights 2–4, mark the five required locations from
+            // the previous night's final police positions. This overlay is supplied only
+            // by HELL_POLICE, so it disappears automatically after leaving that phase.
+            requiredPoints.forEach{n->points.firstOrNull{it.number==n}?.let{p->
+                drawCircle(FGold,policeRadius*1.55f,center(p),style=Stroke(2.5.dp.toPx()))
+            }}
             fun heartPath(c:Offset,size:Float)=Path().apply{
                 moveTo(c.x,c.y+size*0.88f)
                 cubicTo(c.x-size*1.18f,c.y+size*0.12f,c.x-size*1.02f,c.y-size*0.82f,c.x-size*0.45f,c.y-size*0.82f)
