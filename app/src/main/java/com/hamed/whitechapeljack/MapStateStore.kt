@@ -106,7 +106,7 @@ object MapStateStore {
                 hv.put(item)
             }
         }
-        pub.put("police",pa).put("events",ea).put("hellPolice",hp).put("hellVictims",hv).put("hellReveal",reveal)
+        pub.put("police",pa).put("events",ea).put("hellPolice",hp).put("hellVictims",hv).put("hellReveal",reveal).put("appearance",AppearanceStore.publicJson(ctx))
         TvMapHub.setState(pub)
     }
 

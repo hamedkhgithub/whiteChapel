@@ -35,6 +35,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -165,6 +167,8 @@ fun WhitechapelApp(store: GameStore) {
     var hideout by remember { mutableIntStateOf(0) }
     var night by remember { mutableIntStateOf(1) }
     var gameOver by remember { mutableStateOf(false) }
+    var appearanceRevision by remember { mutableIntStateOf(0) }
+    val appearance = remember(appearanceRevision) { AppearanceStore.load(appContext) }
 
     val starts = remember { mutableStateMapOf<Int, Int>() }
     val moves = remember { mutableStateListOf<JackMove>() }
@@ -239,11 +243,15 @@ fun WhitechapelApp(store: GameStore) {
             "detective" -> save()
             "unlock" -> page = "detective"
             "audit" -> page = "home"
-            "newmap", "digital" -> page = "home"
+            "newmap", "digital", "settings" -> page = "home"
             "home" -> Unit
         }
     }
 
+    val baseDensity = LocalDensity.current
+    CompositionLocalProvider(
+        LocalDensity provides Density(baseDensity.density, baseDensity.fontScale * appearance.phone.textScale)
+    ) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Gold, surface = Ink)) {
         when (page) {
             "splash" -> Splash { page = "home" }
@@ -252,7 +260,13 @@ fun WhitechapelApp(store: GameStore) {
                 onNewGame = { page = "newgame" },
                 onContinue = { if (load()) page = if (gameOver) "audit" else "detective" },
                 onNewMapGame = { page = "newmap" },
-                onContinueMap = { page = "digital" }
+                onContinueMap = { page = "digital" },
+                onSettings = { page = "settings" }
+            )
+            "settings" -> AppearanceSettingsPage(
+                initial = appearance,
+                onChanged = { updated -> AppearanceStore.save(appContext, updated); appearanceRevision++ },
+                onBack = { page = "home" }
             )
             "digital" -> DigitalGamePage(onBack = { page = "home" })
 
@@ -324,6 +338,7 @@ fun WhitechapelApp(store: GameStore) {
             "audit" -> AuditPage(hideout, starts, moves, queries, escaped.toSet(), police.toMap()) { store.clear(); page = "home" }
         }
     }
+    }
 }
 
 @Composable
@@ -358,7 +373,8 @@ private fun Home(
     onNewGame: () -> Unit,
     onContinue: () -> Unit,
     onNewMapGame: () -> Unit,
-    onContinueMap: () -> Unit
+    onContinueMap: () -> Unit,
+    onSettings: () -> Unit
 ) {
     Box(Modifier.fillMaxSize()) {
         Image(painterResource(R.drawable.home_background), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -375,6 +391,8 @@ private fun Home(
             MenuButton("⌖", "شروع بازی جدید با نقشه", "نقشه دیجیتال • بدون صفحه بازی", true, onNewMapGame)
             Spacer(Modifier.height(10.dp))
             MenuButton("◉", "ادامه بازی با نقشه", "ادامه بازی با نقشه دیجیتال", true, onContinueMap)
+            Spacer(Modifier.height(10.dp))
+            MenuButton("⚙", "تنظیمات", "ظاهر گوشی و نمایش عمومی", true, onSettings)
             Spacer(Modifier.weight(.12f))
         }
     }
