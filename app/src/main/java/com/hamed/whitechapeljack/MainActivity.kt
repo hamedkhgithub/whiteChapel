@@ -858,7 +858,7 @@ private fun AuditPage(
                         val policeLabel = police[n].orEmpty().sorted().joinToString("، ").ifEmpty { "—" }
                         Text("موقعیت پلیس‌ها: $policeLabel", color = Color.LightGray, modifier = Modifier.padding(bottom = 6.dp))
                     }
-                    items(moves.filter { it.night == n }) { m -> Text("حرکت ${m.turn}: ${m.first}${m.second?.let { " → $it" } ?: ""} • ${when(m.type){MoveType.NORMAL->"عادی";MoveType.COACH->"درشکه";MoveType.ALLEY->"کوچه"}}", color = Color.White) }
+                    items(moves.filter { it.night == n }) { m -> Text("حرکت ${m.turn}: ${m.first}${m.second?.let { " ← $it" } ?: ""} • ${when(m.type){MoveType.NORMAL->"عادی";MoveType.COACH->"درشکه";MoveType.ALLEY->"کوچه"}}", color = Color.White) }
                     items(queries.filter { it.night == n }) { q -> Text("${if(q.type==InquiryType.SEARCH) "جستجو" else "دستگیری"} ${q.house}: ${if (q.positive) "✓" else "✗"}", color = Color.LightGray) }
                 }
             }
@@ -916,7 +916,7 @@ private fun MoveHistoryCard(m: JackMove, editable: Boolean, onCorrect: () -> Uni
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text("حرکت ${m.turn}", color = Gold, fontWeight = FontWeight.Bold)
-                Text(if (m.second != null) "${m.first} → ${m.second}" else "${m.first}", color = Color.White, fontSize = 16.sp)
+                Text(if (m.second != null) "${m.first} ← ${m.second}" else "${m.first}", color = Color.White, fontSize = 16.sp)
             }
             if (editable) {
                 TextButton(onClick = onCorrect, colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFFC85A))) { Text("✎ اصلاح", fontWeight = FontWeight.Bold) }
