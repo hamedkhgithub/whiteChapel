@@ -86,7 +86,7 @@ data class DisplayAppearance(
                 clueSize = o.optDouble("clueSize", 1.0).toFloat().coerceIn(.5f, 2f),
                 clueFillAlpha = o.optDouble("clueFillAlpha", o.optDouble("clueAlpha", .32)).toFloat().coerceIn(.05f, 1f),
                 // V3.1 used textScale for UI text. Migrate that value to house numbers instead.
-                houseNumberScale = o.optDouble("houseNumberScale", o.optDouble("textScale", 1.0)).toFloat().coerceIn(.6f, 1.8f)
+                houseNumberScale = o.optDouble("houseNumberScale", o.optDouble("textScale", 1.0)).toFloat().coerceIn(.1f, 1.8f)
             )
         }
     }
@@ -219,7 +219,7 @@ fun AppearanceSettingsPage(
                     color = Color.LightGray,
                     fontSize = 11.sp
                 )
-                ScaleRow("اندازه شماره‌ها", current.houseNumberScale, .6f, 1.8f) {
+                ScaleRow("اندازه شماره‌ها", current.houseNumberScale, .1f, 1.8f) {
                     updateDisplay(current.copy(houseNumberScale = it))
                 }
             }

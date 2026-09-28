@@ -43,9 +43,9 @@ internal fun DrawScope.drawHouseNumberBadges(
     numberScale: Float
 ) {
     // One constant circle size for every number. Keep the badge compact but large enough for 3 digits.
-    val diameter = 22.dp.toPx() * numberScale * scale
+    val diameter = 19.dp.toPx() * numberScale * scale
     val radius = diameter / 2f
-    val fontPx = 10.5.dp.toPx() * numberScale * scale
+    val fontPx = 8.5.dp.toPx() * numberScale * scale
     val borderWidth = (0.8.dp.toPx() * numberScale * scale).coerceAtLeast(1f)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = android.graphics.Color.BLACK
