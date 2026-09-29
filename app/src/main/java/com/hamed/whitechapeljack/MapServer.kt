@@ -88,6 +88,8 @@ class TvMapServer(private val context: Context, private val port: Int = 8765) {
                 "/houses" -> sendAsset(s, "houses.json", "application/json; charset=utf-8")
                 "/move-track" -> sendAsset(s, "move_track_points.json", "application/json; charset=utf-8")
                 "/jack-token" -> sendDrawable(s, R.drawable.jack_track_token, "image/png")
+                "/coach-token" -> sendDrawable(s, R.drawable.coach_track_token, "image/webp")
+                "/alley-token" -> sendDrawable(s, R.drawable.alley_track_token, "image/webp")
                 else -> sendText(s, "text/plain; charset=utf-8", "Not found", status = "404 Not Found")
             }
         }
@@ -140,11 +142,8 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 
 /* Move Track markers are rendered directly on the printed board track. */
 .track-jack-map{position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background-image:url('/jack-token');background-size:cover;background-position:center;border:2px solid #2b2b2b;box-shadow:0 1px 4px #000b;z-index:15;box-sizing:border-box}
-.track-alley-map{position:absolute;transform:translate(-50%,-50%) rotate(45deg);width:30px;height:30px;background:#d32626;border:3px solid #2a1712;border-radius:5px;z-index:13;box-sizing:border-box;box-shadow:0 1px 3px #0008}
-.track-alley-map::after{content:"";position:absolute;left:5px;right:5px;top:12px;height:3px;background:#ffd7c7;transform:rotate(-90deg);border-radius:2px}
-.track-coach-map{position:absolute;transform:translate(-50%,-50%);height:31px;background:#d6ad63;border:3px solid #24170d;border-radius:9px;z-index:12;box-sizing:border-box;box-shadow:0 1px 4px #0009}
-.track-coach-map::before,.track-coach-map::after{content:"";position:absolute;bottom:-6px;width:10px;height:10px;border-radius:50%;background:#24170d}
-.track-coach-map::before{left:22%}.track-coach-map::after{right:22%}
+.track-alley-map{position:absolute;transform:translate(-50%,-50%);width:34px;aspect-ratio:391/332;background:url('/alley-token') center/contain no-repeat;z-index:13;box-sizing:border-box;filter:drop-shadow(0 1px 2px #0009)}
+.track-coach-map{position:absolute;transform:translate(-50%,-50%);aspect-ratio:407/320;background:url('/coach-token') center/contain no-repeat;z-index:12;box-sizing:border-box;filter:drop-shadow(0 1px 3px #0009)}
 </style></head><body>
 <div id="top"><div id="headline"><span>WhiteChapel Map</span><span id="game"></span><span id="status">در حال اتصال…</span></div><div id="event"></div></div>
 <div id="wrap"><div id="stage"><img id="base" src="/map"><div id="numbers" class="layer"></div><div id="marks" class="layer"></div></div></div>
@@ -185,7 +184,8 @@ function renderBoardMoveTrack(s){
         const ia=start+Number(m.from||0),ib=start+Number(m.to||0),a=trackPointById(ia+1),b=trackPointById(ib+1);
         if(a&&b){
           const mx=(Number(a.norm_x)+Number(b.norm_x))/2,my=(Number(a.norm_y)+Number(b.norm_y))/2;
-          const nativeWidth=Math.abs(Number(b.x)-Number(a.x))+34;
+          const gap=Math.max(1,Math.abs(Number(b.x)-Number(a.x)));
+          const nativeWidth=gap*1.55;
           addTrackDiv('track-coach-map',mx,my,nativeWidth)
         }
       }

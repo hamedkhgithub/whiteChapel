@@ -533,36 +533,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
         Surface(color=Color(0xFFD0D0CE),shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()){
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
                 Text("🔐 ورود محرمانه جک",color=Color.Black,fontSize=22.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
-OutlinedTextField(
-    value = pin,
-    onValueChange = {
-        pin = it.filter(Char::isDigit).take(6)
-        error = ""
-    },
-    label = {
-        Text(
-            "PIN",
-            color = Color.Black
-        )
-    },
-    singleLine = true,
-    visualTransformation = PasswordVisualTransformation(),
-    keyboardOptions = KeyboardOptions(
-        keyboardType = KeyboardType.NumberPassword
-    ),
-    textStyle = LocalTextStyle.current.copy(
-        color = Color.Black,
-        fontSize = 20.sp
-    ),
-    colors = OutlinedTextFieldDefaults.colors(
-        focusedTextColor = Color.Black,
-        unfocusedTextColor = Color.Black,
-        focusedLabelColor = Color.Black,
-        unfocusedLabelColor = Color.Black,
-        cursorColor = Color.Black
-    ),
-    modifier = Modifier.fillMaxWidth()
-)
+                OutlinedTextField(value=pin,onValueChange={pin=it.filter(Char::isDigit).take(6);error=""},label={Text("PIN")},singleLine=true,visualTransformation=PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword),textStyle=LocalTextStyle.current.copy(color=Color.Black),colors=OutlinedTextFieldDefaults.colors(focusedTextColor=Color.Black,unfocusedTextColor=Color.Black,cursorColor=Color.Black),modifier=Modifier.fillMaxWidth())
                 if(error.isNotBlank())Text(error,color=Color(0xFF8D0000),fontSize=12.sp)
                 Button(onClick={if(GameStore.hash(pin)==pinHash)onSuccess() else error="PIN اشتباه است."},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=FBlood)){Text("ورود به دفترچه جک",fontWeight=FontWeight.Bold)}
             }
@@ -741,6 +712,8 @@ private data class MoveTrackPoint(val id:Int,val normX:Float,val normY:Float)
     val appearance=remember{AppearanceStore.load(context).phone}
     val baseBitmap=remember{BitmapFactory.decodeResource(context.resources,R.drawable.whitechapel_board_base).asImageBitmap()}
     val jackTrackBitmap=remember{BitmapFactory.decodeResource(context.resources,R.drawable.jack_track_token).asImageBitmap()}
+    val alleyTrackBitmap=remember{BitmapFactory.decodeResource(context.resources,R.drawable.alley_track_token).asImageBitmap()}
+    val coachTrackBitmap=remember{BitmapFactory.decodeResource(context.resources,R.drawable.coach_track_token).asImageBitmap()}
     val houseNumberPoints=rememberHouseNumberPoints()
     val moveTrackPoints=rememberMoveTrackPoints()
     var scale by remember{mutableFloatStateOf(1f)}
@@ -865,43 +838,39 @@ private data class MoveTrackPoint(val id:Int,val normX:Float,val normY:Float)
                 }
                 val boardPxScale=(dw/1536f).coerceAtLeast(0.01f)
 
-                // Alley token: compact red diamond centered on the consumed Move Track space.
+                // Alley token: the supplied lantern artwork sits on one Move Track space.
+                // 34 native board pixels is deliberately smaller than the ~51 px track spacing,
+                // so two alley tokens can occupy adjacent spaces without overlapping.
                 tv.alleyPointIds.forEach{id->trackCenter(id)?.let{c->
-                    val r=15f*boardPxScale
-                    val diamond=Path().apply{
-                        moveTo(c.x,c.y-r);lineTo(c.x+r,c.y);lineTo(c.x,c.y+r);lineTo(c.x-r,c.y);close()
-                    }
-                    drawPath(diamond,Color(0xFFD32626))
-                    drawPath(diamond,Color(0xFF2A1712),style=Stroke((2.5f*boardPxScale).coerceAtLeast(1f)))
-                    val inner=r*.47f
-                    drawLine(Color(0xFFFFD7C7),Offset(c.x-inner,c.y+inner),Offset(c.x+inner,c.y-inner),strokeWidth=(2.4f*boardPxScale).coerceAtLeast(1f))
+                    val width=34f*boardPxScale
+                    val height=width*alleyTrackBitmap.height.toFloat()/alleyTrackBitmap.width.toFloat()
+                    drawImage(
+                        image=alleyTrackBitmap,
+                        srcOffset=IntOffset.Zero,
+                        srcSize=IntSize(alleyTrackBitmap.width,alleyTrackBitmap.height),
+                        dstOffset=IntOffset((c.x-width/2f).roundToInt(),(c.y-height/2f).roundToInt()),
+                        dstSize=IntSize(width.roundToInt().coerceAtLeast(1),height.roundToInt().coerceAtLeast(1)),
+                        filterQuality=FilterQuality.High
+                    )
                 }}
 
-                // Coach token: one elongated token spanning exactly two consecutive Move Track spaces.
+                // Coach token: centered between its two consumed spaces and wide enough to read
+                // as a two-space token, while still leaving clear room before the neighbouring space.
                 tv.coachPointPairs.forEach{(a,b)->
                     val c1=trackCenter(a);val c2=trackCenter(b)
                     if(c1!=null && c2!=null){
                         val mid=Offset((c1.x+c2.x)/2f,(c1.y+c2.y)/2f)
-                        val extra=17f*boardPxScale
-                        val width=kotlin.math.abs(c2.x-c1.x)+extra*2f
-                        val height=31f*boardPxScale
-                        drawRoundRect(
-                            color=Color(0xFFD6AD63),
-                            topLeft=Offset(mid.x-width/2f,mid.y-height/2f),
-                            size=Size(width,height),
-                            cornerRadius=androidx.compose.ui.geometry.CornerRadius(height*.28f,height*.28f)
+                        val gap=kotlin.math.abs(c2.x-c1.x).coerceAtLeast(1f)
+                        val width=gap*1.55f
+                        val height=width*coachTrackBitmap.height.toFloat()/coachTrackBitmap.width.toFloat()
+                        drawImage(
+                            image=coachTrackBitmap,
+                            srcOffset=IntOffset.Zero,
+                            srcSize=IntSize(coachTrackBitmap.width,coachTrackBitmap.height),
+                            dstOffset=IntOffset((mid.x-width/2f).roundToInt(),(mid.y-height/2f).roundToInt()),
+                            dstSize=IntSize(width.roundToInt().coerceAtLeast(1),height.roundToInt().coerceAtLeast(1)),
+                            filterQuality=FilterQuality.High
                         )
-                        drawRoundRect(
-                            color=Color(0xFF24170D),
-                            topLeft=Offset(mid.x-width/2f,mid.y-height/2f),
-                            size=Size(width,height),
-                            cornerRadius=androidx.compose.ui.geometry.CornerRadius(height*.28f,height*.28f),
-                            style=Stroke((2.5f*boardPxScale).coerceAtLeast(1f))
-                        )
-                        val wheelR=5f*boardPxScale
-                        drawCircle(Color(0xFF24170D),wheelR,Offset(mid.x-width*.28f,mid.y+height*.38f))
-                        drawCircle(Color(0xFF24170D),wheelR,Offset(mid.x+width*.28f,mid.y+height*.38f))
-                        drawLine(Color(0xFF24170D),Offset(mid.x-width*.22f,mid.y),Offset(mid.x+width*.20f,mid.y-height*.18f),strokeWidth=(3f*boardPxScale).coerceAtLeast(1f))
                     }
                 }
 
