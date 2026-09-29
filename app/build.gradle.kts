@@ -7,11 +7,11 @@ android {
     namespace = "com.hamed.whitechapeljack"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.hamed.whitechapeljack"
+        applicationId = "com.hamed.whitechapeljack.legacytv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1-ui"
+        versionCode = 13
+        versionName = "3.13-legacytv"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
