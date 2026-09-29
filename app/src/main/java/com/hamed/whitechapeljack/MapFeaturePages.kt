@@ -533,7 +533,36 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
         Surface(color=Color(0xFFD0D0CE),shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()){
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
                 Text("🔐 ورود محرمانه جک",color=Color.Black,fontSize=22.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
-                OutlinedTextField(value=pin,onValueChange={pin=it.filter(Char::isDigit).take(6);error=""},label={Text("PIN")},singleLine=true,visualTransformation=PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword),modifier=Modifier.fillMaxWidth())
+OutlinedTextField(
+    value = pin,
+    onValueChange = {
+        pin = it.filter(Char::isDigit).take(6)
+        error = ""
+    },
+    label = {
+        Text(
+            "PIN",
+            color = Color.Black
+        )
+    },
+    singleLine = true,
+    visualTransformation = PasswordVisualTransformation(),
+    keyboardOptions = KeyboardOptions(
+        keyboardType = KeyboardType.NumberPassword
+    ),
+    textStyle = LocalTextStyle.current.copy(
+        color = Color.Black,
+        fontSize = 20.sp
+    ),
+    colors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.Black,
+        unfocusedTextColor = Color.Black,
+        focusedLabelColor = Color.Black,
+        unfocusedLabelColor = Color.Black,
+        cursorColor = Color.Black
+    ),
+    modifier = Modifier.fillMaxWidth()
+)
                 if(error.isNotBlank())Text(error,color=Color(0xFF8D0000),fontSize=12.sp)
                 Button(onClick={if(GameStore.hash(pin)==pinHash)onSuccess() else error="PIN اشتباه است."},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=FBlood)){Text("ورود به دفترچه جک",fontWeight=FontWeight.Bold)}
             }
