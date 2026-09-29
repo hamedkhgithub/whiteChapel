@@ -775,35 +775,94 @@ private data class MoveTrackPoint(val id:Int,val normX:Float,val normY:Float)
             requiredPoints.forEach{n->points.firstOrNull{it.number==n}?.let{p->
                 drawCircle(FGold,policeRadius*1.55f,center(p),style=Stroke(2.5.dp.toPx()))
             }}
-            fun heartPath(c:Offset,size:Float)=Path().apply{
-                moveTo(c.x,c.y+size*0.88f)
-                cubicTo(c.x-size*1.18f,c.y+size*0.12f,c.x-size*1.02f,c.y-size*0.82f,c.x-size*0.45f,c.y-size*0.82f)
-                cubicTo(c.x-size*0.16f,c.y-size*0.82f,c.x,c.y-size*0.60f,c.x,c.y-size*0.36f)
-                cubicTo(c.x,c.y-size*0.60f,c.x+size*0.16f,c.y-size*0.82f,c.x+size*0.45f,c.y-size*0.82f)
-                cubicTo(c.x+size*1.02f,c.y-size*0.82f,c.x+size*1.18f,c.y+size*0.12f,c.x,c.y+size*0.88f)
+            // Marker geometry below is derived from the two SVG files supplied for
+            // victims and police. Fill alpha is configurable; the outline stays opaque.
+            fun svgPoint(c:Offset,targetSize:Float,viewBox:Float,x:Float,y:Float)=Offset(
+                c.x-targetSize/2f+(x/viewBox)*targetSize,
+                c.y-targetSize/2f+(y/viewBox)*targetSize
+            )
+            fun heartFillPath(c:Offset,targetSize:Float)=Path().apply{
+                fun q(x:Float,y:Float)=svgPoint(c,targetSize,24f,x+1f,y+2f)
+                q(18.6707335f,10.0469949f).let{moveTo(it.x,it.y)}
+                q(20.4444204f,8.20475335f).let{a->q(20.4428931f,5.22154308f).let{b->q(18.6673208f,3.38125356f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(16.8917484f,1.54096405f).let{a->q(14.0134482f,1.53938105f).let{b->q(12.2359925f,3.37771648f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(10.9702069f,4.68963823f).let{lineTo(it.x,it.y)}
+                q(9.74663024f,3.42106257f).let{lineTo(it.x,it.y)}
+                q(7.97421677f,1.58443498f).let{a->q(5.10087015f,1.58474944f).let{b->q(3.32883095f,3.42176494f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(1.55679174f,5.25878043f).let{a->q(1.55709514f,8.23685657f).let{b->q(3.32950861f,10.0734842f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(10.9750473f,18f).let{lineTo(it.x,it.y)}
+                q(18.6707335f,10.0469949f).let{lineTo(it.x,it.y)}
+                close()
+            }
+            fun heartOutlinePath(c:Offset,targetSize:Float)=Path().apply{
+                fun q(x:Float,y:Float)=svgPoint(c,targetSize,24f,x+1f,y+2f)
+                q(9.53555048f,19.3884699f).let{moveTo(it.x,it.y)}
+                q(1.89036034f,11.4623154f).let{lineTo(it.x,it.y)}
+                q(-0.629744037f,8.85090825f).let{a->q(-0.630172509f,4.64518565f).let{b->q(1.88938959f,2.03323745f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(4.37655172f,-0.545122756f).let{a->q(8.39543397f,-0.61732966f).let{b->q(10.9687169f,1.81730162f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(13.5445576f,-0.66312694f).let{a->q(17.60123f,-0.604129239f).let{b->q(20.1066156f,1.99257419f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(22.6292352f,4.60713978f).let{a->q(22.6313904f,8.81686087f).let{b->q(20.1115002f,11.434147f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(12.4427074f,19.3824584f).let{lineTo(it.x,it.y)}
+                q(12.1544685f,19.6812032f).let{a->q(11.7964701f,19.8704534f).let{b->q(11.4198481f,19.9502088f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(10.7609371f,20.0997637f).let{a->q(10.0408904f,19.9123813f).let{b->q(9.53555048f,19.3884699f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                close()
+            }
+            fun policeHatPath(c:Offset,targetSize:Float)=Path().apply{
+                fun q(x:Float,y:Float)=svgPoint(c,targetSize,512f,x,y)
+                q(503.407f,432.422f).let{moveTo(it.x,it.y)}
+                q(492.772f,431.586f).let{a->q(482.021f,431.156f).let{b->q(471.177f,431.156f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(392.181f,431.156f).let{a->q(318.468f,453.738f).let{b->q(256.109f,492.783f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(221.336f,471.014f).let{a->q(183.034f,454.353f).let{b->q(142.247f,443.892f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(109.901f,435.567f).let{a->q(75.987f,431.156f).let{b->q(41.041f,431.156f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(30.197f,431.156f).let{a->q(19.458f,431.586f).let{b->q(8.823f,432.422f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(21.014f,387.142f).let{a->q(68.035f,373.210f).let{b->q(68.035f,373.210f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(72.888f,335.454f).let{lineTo(it.x,it.y)}
+                q(90.965f,194.599f).let{lineTo(it.x,it.y)}
+                q(96.294f,153.069f).let{a->q(116.647f,116.741f).let{b->q(146.125f,90.792f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(175.615f,64.855f).let{a->q(214.231f,49.297f).let{b->q(256.120f,49.297f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(339.876f,49.297f).let{a->q(410.594f,111.528f).let{b->q(421.264f,194.599f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(444.194f,373.211f).let{lineTo(it.x,it.y)}
+                q(444.195f,373.210f).let{a->q(491.216f,387.143f).let{b->q(503.407f,432.422f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                close()
+            }
+            fun policeBadgePath(c:Offset,targetSize:Float)=Path().apply{
+                fun q(x:Float,y:Float)=svgPoint(c,targetSize,512f,x,y)
+                val pts=listOf(
+                    256.117f to 194.281f,279.646f to 217.811f,312.921f to 217.811f,312.921f to 251.086f,
+                    336.449f to 274.614f,312.921f to 298.143f,312.921f to 331.418f,279.646f to 331.418f,
+                    256.117f to 354.947f,232.588f to 331.418f,199.313f to 331.418f,199.313f to 298.143f,
+                    175.784f to 274.614f,199.313f to 251.086f,199.313f to 217.811f,232.588f to 217.811f
+                )
+                pts.forEachIndexed{i,(x,y)->q(x,y).let{if(i==0)moveTo(it.x,it.y) else lineTo(it.x,it.y)}}
                 close()
             }
             markers.forEach{(n,col)->points.firstOrNull{it.number==n}?.let{p->
                 val c=center(p)
                 if(primaryShape==MapMarkerShape.HEART){
-                    val heart=heartPath(c,12.dp.toPx()*appearance.victimSize)
-                    drawPath(heart,col.copy(alpha=appearance.victimFillAlpha))
-                    drawPath(heart,col,style=Stroke(stroke))
+                    val markerSize=30.dp.toPx()*appearance.victimSize
+                    drawPath(heartFillPath(c,markerSize),col.copy(alpha=appearance.victimFillAlpha))
+                    drawPath(heartOutlinePath(c,markerSize),col,style=Stroke(2.2.dp.toPx()))
                 } else {
-                    drawCircle(col.copy(alpha=appearance.policeFillAlpha),policeRadius,c)
-                    drawCircle(col,policeRadius,c,style=Stroke(stroke))
+                    val markerSize=34.dp.toPx()*appearance.policeSize
+                    val hat=policeHatPath(c,markerSize)
+                    drawPath(hat,col.copy(alpha=appearance.policeFillAlpha))
+                    drawPath(hat,col,style=Stroke(2.2.dp.toPx()))
+                    drawPath(policeBadgePath(c,markerSize),col,style=Stroke(1.5.dp.toPx()))
                 }
                 if(n in active)drawCircle(FGold,policeRadius*1.30f,c,style=Stroke(2.dp.toPx()))
             }}
             secondaryMarkers.forEach{(n,col)->secondaryPoints.firstOrNull{it.number==n}?.let{p->
                 val c=center(p)
                 if(secondaryShape==MapMarkerShape.HEART){
-                    val heart=heartPath(c,12.dp.toPx()*appearance.victimSize)
-                    drawPath(heart,col.copy(alpha=appearance.victimFillAlpha))
-                    drawPath(heart,col,style=Stroke(stroke))
+                    val markerSize=30.dp.toPx()*appearance.victimSize
+                    drawPath(heartFillPath(c,markerSize),col.copy(alpha=appearance.victimFillAlpha))
+                    drawPath(heartOutlinePath(c,markerSize),col,style=Stroke(2.2.dp.toPx()))
                 } else {
-                    drawCircle(col.copy(alpha=appearance.policeFillAlpha),policeRadius,c)
-                    drawCircle(col,policeRadius,c,style=Stroke(stroke))
+                    val markerSize=34.dp.toPx()*appearance.policeSize
+                    val hat=policeHatPath(c,markerSize)
+                    drawPath(hat,col.copy(alpha=appearance.policeFillAlpha))
+                    drawPath(hat,col,style=Stroke(2.2.dp.toPx()))
+                    drawPath(policeBadgePath(c,markerSize),col,style=Stroke(1.5.dp.toPx()))
                 }
                 if(n in secondaryActive)drawCircle(FGold,policeRadius*1.30f,c,style=Stroke(2.dp.toPx()))
             }}
@@ -839,10 +898,9 @@ private data class MoveTrackPoint(val id:Int,val normX:Float,val normY:Float)
                 val boardPxScale=(dw/1536f).coerceAtLeast(0.01f)
 
                 // Alley token: the supplied lantern artwork sits on one Move Track space.
-                // 34 native board pixels is deliberately smaller than the ~51 px track spacing,
-                // so two alley tokens can occupy adjacent spaces without overlapping.
+                // Alley token enlarged to 56 native board pixels as requested.
                 tv.alleyPointIds.forEach{id->trackCenter(id)?.let{c->
-                    val width=43f*boardPxScale
+                    val width=56f*boardPxScale
                     val height=width*alleyTrackBitmap.height.toFloat()/alleyTrackBitmap.width.toFloat()
                     drawImage(
                         image=alleyTrackBitmap,

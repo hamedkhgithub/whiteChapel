@@ -10,8 +10,8 @@ android {
         applicationId = "com.hamed.whitechapeljack.legacytv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "3.13-legacytv"
+        versionCode = 15
+        versionName = "3.15-webos-fixed-canvas"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

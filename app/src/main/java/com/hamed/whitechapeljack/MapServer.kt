@@ -126,21 +126,21 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 #top{height:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:#16120e;color:#d6ad63;font-weight:700;padding:0 10px;box-sizing:border-box;font-size:16px}
 #headline{display:flex;align-items:center;justify-content:center;gap:24px;width:100%}
 #event{min-height:18px;color:#fff3c4;font-size:13px;font-weight:600;text-align:center;direction:rtl;unicode-bidi:plaintext;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96vw}
-#wrap{position:relative;width:100vw;height:calc(100vh - 118px);overflow:hidden;touch-action:none}
-#stage{position:absolute;transform-origin:0 0;left:0;top:0}
-.layer{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
-#base{position:relative;display:block}
+#wrap{position:relative;overflow:hidden;touch-action:none}
+#stage{position:absolute;left:0;top:0;width:1536px;height:1024px;transform-origin:0 0}
+.layer{position:absolute;left:0;top:0;width:1536px;height:1024px;pointer-events:none}
+#base{position:absolute;left:0;top:0;width:1536px;height:1024px;display:block}
 .m{position:absolute;transform:translate(-50%,-50%);box-sizing:border-box}
 .number-badge{position:absolute;transform:translate(-50%,-50%);width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid rgba(0,0,0,.45);color:#000;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;line-height:1;box-sizing:border-box}.number-badge.red-house{background:rgba(211,47,47,.94);border-color:rgba(122,12,12,.85);color:#fff}
-.woman{width:42px;height:42px;border:0;border-radius:0;font-size:42px;line-height:42px;text-align:center;font-family:Arial,sans-serif;font-weight:700}
-.patrol{width:40px;height:40px;border:4px solid #111;border-radius:50%;background:rgba(17,17,17,.42);box-shadow:0 0 0 1px #fff8}
+.woman{width:42px;height:42px;border:0;background:transparent}
+.patrol{width:40px;height:40px;border:0;background:transparent}
 .crime{width:35px;height:35px;border:4px solid #8b8b8b;border-radius:0;background:transparent}.crime.current{border-color:#d01818}
 .clue{width:32px;height:32px;border:3px solid #f0c52b;border-radius:0;background:rgba(240,197,43,.32);transform:translate(-50%,-50%) rotate(45deg)}
 #legend{position:fixed;right:10px;bottom:62px;background:#111d;padding:7px 10px;border:1px solid #d6ad63;border-radius:8px;font-size:12px;z-index:50;direction:rtl;unicode-bidi:plaintext}
 
 /* Move Track markers are rendered directly on the printed board track. */
 .track-jack-map{position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background-image:url('/jack-token');background-size:cover;background-position:center;border:2px solid #2b2b2b;box-shadow:0 1px 4px #000b;z-index:15;box-sizing:border-box}
-.track-alley-map{position:absolute;transform:translate(-50%,-50%);width:43px;height:36px;background:url('/alley-token') center/contain no-repeat;z-index:13;box-sizing:border-box;filter:drop-shadow(0 1px 2px #0009)}
+.track-alley-map{position:absolute;transform:translate(-50%,-50%);width:56px;height:47px;background:url('/alley-token') center/contain no-repeat;z-index:13;box-sizing:border-box;filter:drop-shadow(0 1px 2px #0009)}
 .track-coach-map{position:absolute;transform:translate(-50%,-50%);background:url('/coach-token') center/contain no-repeat;z-index:12;box-sizing:border-box;filter:drop-shadow(0 1px 3px #0009)}
 </style></head><body>
 <div id="top"><div id="headline"><span>WhiteChapel Map • Legacy TV</span><span id="game"></span><span id="status">در حال اتصال…</span></div><div id="event"></div></div>
@@ -163,9 +163,18 @@ var defaultAppearance={
 };
 var currentAppearance=defaultAppearance;
 
+function resizeViewport(){
+  var top=document.getElementById('top');
+  var topH=top?top.offsetHeight:66;
+  var vw=window.innerWidth||document.documentElement.clientWidth||1536;
+  var vh=window.innerHeight||document.documentElement.clientHeight||1024;
+  wrap.style.width=vw+'px';
+  wrap.style.height=Math.max(100,vh-topH)+'px';
+}
 function fit(){
-  var w=base.naturalWidth||1536;
-  var h=base.naturalHeight||1024;
+  resizeViewport();
+  var w=1536;
+  var h=1024;
   minZ=Math.min(wrap.clientWidth/w,wrap.clientHeight/h);
   z=minZ;
   ox=(wrap.clientWidth-w*z)/2;
@@ -173,8 +182,8 @@ function fit(){
   apply();
 }
 function clampPan(){
-  var w=(base.naturalWidth||1536)*z;
-  var h=(base.naturalHeight||1024)*z;
+  var w=1536*z;
+  var h=1024*z;
   var vw=wrap.clientWidth;
   var vh=wrap.clientHeight;
   if(z<=minZ+0.0001){ox=(vw-w)/2;oy=(vh-h)/2;return;}
@@ -200,6 +209,8 @@ function zoomAt(clientX,clientY,newZ){
 }
 base.onload=fit;
 base.draggable=false;
+window.onresize=function(){fit();};
+if(base.complete){fit();}
 
 function rgba(hex,a){
   var h=(hex||'#000000').replace('#','');
@@ -223,6 +234,28 @@ function applyAppearance(a){
   currentAppearance=a||defaultAppearance;
   renderNumbers();
 }
+function svgEl(name){return document.createElementNS('http://www.w3.org/2000/svg',name);}
+function addSvgPath(svg,d,fill,fillOpacity,stroke,strokeWidth){
+  var p=svgEl('path');
+  p.setAttribute('d',d);
+  p.setAttribute('fill',fill||'none');
+  if(fillOpacity!=null)p.setAttribute('fill-opacity',String(fillOpacity));
+  if(stroke){p.setAttribute('stroke',stroke);p.setAttribute('stroke-width',String(strokeWidth||1));p.setAttribute('stroke-linejoin','round');p.setAttribute('stroke-linecap','round');}
+  svg.appendChild(p);return p;
+}
+function addHeartSvg(e,color,fillAlpha){
+  var svg=svgEl('svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('width','100%');svg.setAttribute('height','100%');
+  var g=svgEl('g');g.setAttribute('transform','translate(1 2)');svg.appendChild(g);
+  var inner=svgEl('path');inner.setAttribute('d','M18.6707335,10.0469949 C20.4444204,8.20475335 20.4428931,5.22154308 18.6673208,3.38125356 C16.8917484,1.54096405 14.0134482,1.53938105 12.2359925,3.37771648 L10.9702069,4.68963823 L9.74663024,3.42106257 C7.97421677,1.58443498 5.10087015,1.58474944 3.32883095,3.42176494 C1.55679174,5.25878043 1.55709514,8.23685657 3.32950861,10.0734842 L10.9750473,18 L18.6707335,10.0469949 Z');inner.setAttribute('fill',color);inner.setAttribute('fill-opacity',String(fillAlpha==null?0:fillAlpha));g.appendChild(inner);
+  var outline=svgEl('path');outline.setAttribute('d','M9.53555048,19.3884699 L1.89036034,11.4623154 C-0.629744037,8.85090825 -0.630172509,4.64518565 1.88938959,2.03323745 C4.37655172,-0.545122756 8.39543397,-0.61732966 10.9687169,1.81730162 C13.5445576,-0.66312694 17.60123,-0.604129239 20.1066156,1.99257419 C22.6292352,4.60713978 22.6313904,8.81686087 20.1115002,11.434147 L12.4427074,19.3824584 C12.1544685,19.6812032 11.7964701,19.8704534 11.4198481,19.9502088 C10.7609371,20.0997637 10.0408904,19.9123813 9.53555048,19.3884699 Z');outline.setAttribute('fill','none');outline.setAttribute('stroke',color);outline.setAttribute('stroke-width','1.45');outline.setAttribute('stroke-linejoin','round');g.appendChild(outline);
+  e.appendChild(svg);
+}
+function addPoliceSvg(e,color,fillAlpha){
+  var svg=svgEl('svg');svg.setAttribute('viewBox','0 0 512 512');svg.setAttribute('width','100%');svg.setAttribute('height','100%');
+  addSvgPath(svg,'M503.407,432.422c-10.635,-0.836 -21.386,-1.266 -32.23,-1.266c-78.996,0 -152.709,22.582 -215.068,61.627c-34.773,-21.769 -73.075,-38.43 -113.862,-48.891c-32.346,-8.325 -66.26,-12.736 -101.206,-12.736c-10.844,0 -21.583,0.43 -32.218,1.266c12.191,-45.28 59.212,-59.212 59.212,-59.212l4.853,-37.756l18.077,-140.855c5.329,-41.53 25.682,-77.858 55.16,-103.807c29.49,-25.937 68.106,-41.495 109.995,-41.495c83.756,0 154.474,62.231 165.144,145.302l22.93,178.612C444.195,373.21 491.216,387.143 503.407,432.422z',color,fillAlpha,color,18);
+  var badge=svgEl('polygon');badge.setAttribute('points','256.117,194.281 279.646,217.811 312.921,217.811 312.921,251.086 336.449,274.614 312.921,298.143 312.921,331.418 279.646,331.418 256.117,354.947 232.588,331.418 199.313,331.418 199.313,298.143 175.784,274.614 199.313,251.086 199.313,217.811 232.588,217.811');badge.setAttribute('fill','none');badge.setAttribute('stroke',color);badge.setAttribute('stroke-width','14');badge.setAttribute('stroke-linejoin','round');svg.appendChild(badge);
+  e.appendChild(svg);
+}
 function mk(cls,x,y,color,fillAlpha){
   var e=document.createElement('div');
   var size;
@@ -231,16 +264,12 @@ function mk(cls,x,y,color,fillAlpha){
   e.style.top=(Number(y)*100)+'%';
   if(cls==='woman'){
     size=42*(currentAppearance.victimSize||1);
-    e.style.width=size+'px';e.style.height=size+'px';e.style.fontSize=size+'px';e.style.lineHeight=size+'px';
-    e.innerHTML='&#9829;';
-    e.style.color=rgba(color,fillAlpha==null?0:fillAlpha);
-    e.style.webkitTextStroke='2px '+color;
-    e.style.textShadow='-1px -1px 0 '+color+',1px -1px 0 '+color+',-1px 1px 0 '+color+',1px 1px 0 '+color;
+    e.style.width=size+'px';e.style.height=size+'px';
+    addHeartSvg(e,color,fillAlpha);
   }else if(cls==='patrol'){
     size=40*(currentAppearance.policeSize||1);
     e.style.width=size+'px';e.style.height=size+'px';
-    e.style.borderColor=color;
-    e.style.backgroundColor=rgba(color,fillAlpha==null?0:fillAlpha);
+    addPoliceSvg(e,color,fillAlpha);
   }else if(cls==='clue'){
     size=32*(currentAppearance.clueSize||1);
     e.style.width=size+'px';e.style.height=size+'px';
@@ -317,7 +346,7 @@ function renderBoardMoveTrack(s){
       m=specials[i];
       if(m.type==='ALLEY'){
         idx=start+Number(m.from||0);p=trackPointById(idx+1);
-        if(p)addTrackDiv('track-alley-map',Number(p.norm_x),Number(p.norm_y),43,36);
+        if(p)addTrackDiv('track-alley-map',Number(p.norm_x),Number(p.norm_y),56,47);
       }else if(m.type==='COACH'){
         ia=start+Number(m.from||0);ib=start+Number(m.to||0);
         a=trackPointById(ia+1);b=trackPointById(ib+1);
