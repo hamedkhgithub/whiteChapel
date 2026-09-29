@@ -615,7 +615,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
             val disabled=token.id in done
             Surface(onClick={if(!disabled)onSelect(token.id)},enabled=!disabled,color=if(selected==token.id)Color(0xFF3A332B) else Color(0xFF1D1A17),shape=RoundedCornerShape(8.dp),border=androidx.compose.foundation.BorderStroke(if(selected==token.id)2.dp else 1.dp,if(selected==token.id)FGold else Color.DarkGray),modifier=Modifier.weight(1f).height(48.dp)){
                 Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
-                    Box(Modifier.width(34.dp).height(10.dp).background(hc(appearance.policeColor(token.id,token.real,true)).copy(alpha=if(disabled).28f else 1f),RoundedCornerShape(8.dp)))
+                    Box(Modifier.width(.dp).height(10.dp).background(hc(appearance.policeColor(token.id,token.real,true)).copy(alpha=if(disabled).28f else 1f),RoundedCornerShape(8.dp)))
                 }
             }
         }
@@ -842,7 +842,7 @@ private data class MoveTrackPoint(val id:Int,val normX:Float,val normY:Float)
                 // 34 native board pixels is deliberately smaller than the ~51 px track spacing,
                 // so two alley tokens can occupy adjacent spaces without overlapping.
                 tv.alleyPointIds.forEach{id->trackCenter(id)?.let{c->
-                    val width=34f*boardPxScale
+                    val width=43f*boardPxScale
                     val height=width*alleyTrackBitmap.height.toFloat()/alleyTrackBitmap.width.toFloat()
                     drawImage(
                         image=alleyTrackBitmap,
