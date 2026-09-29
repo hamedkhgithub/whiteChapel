@@ -145,7 +145,7 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 </style></head><body>
 <div id="top"><div id="headline"><span>WhiteChapel Map • Legacy TV</span><span id="game"></span><span id="status">در حال اتصال…</span></div><div id="event"></div></div>
 <div id="wrap"><div id="stage"><img id="base" src="/map"><div id="numbers" class="layer"></div><div id="marks" class="layer"></div></div></div>
-<div id="legend">اطلاعات محرمانه جک روی این صفحه ارسال نمی‌شود.</div><script>
+<script>
 var stage=document.getElementById('stage');
 var base=document.getElementById('base');
 var marks=document.getElementById('marks');
