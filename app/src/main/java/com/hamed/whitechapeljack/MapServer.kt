@@ -140,7 +140,7 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 
 /* Move Track markers are rendered directly on the printed board track. */
 .track-jack-map{position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background-image:url('/jack-token');background-size:cover;background-position:center;border:2px solid #2b2b2b;box-shadow:0 1px 4px #000b;z-index:15;box-sizing:border-box}
-.track-alley-map{position:absolute;transform:translate(-50%,-50%);width:34px;height:29px;background:url('/alley-token') center/contain no-repeat;z-index:13;box-sizing:border-box;filter:drop-shadow(0 1px 2px #0009)}
+.track-alley-map{position:absolute;transform:translate(-50%,-50%);width:43px;height:36px;background:url('/alley-token') center/contain no-repeat;z-index:13;box-sizing:border-box;filter:drop-shadow(0 1px 2px #0009)}
 .track-coach-map{position:absolute;transform:translate(-50%,-50%);background:url('/coach-token') center/contain no-repeat;z-index:12;box-sizing:border-box;filter:drop-shadow(0 1px 3px #0009)}
 </style></head><body>
 <div id="top"><div id="headline"><span>WhiteChapel Map • Legacy TV</span><span id="game"></span><span id="status">در حال اتصال…</span></div><div id="event"></div></div>
@@ -317,7 +317,7 @@ function renderBoardMoveTrack(s){
       m=specials[i];
       if(m.type==='ALLEY'){
         idx=start+Number(m.from||0);p=trackPointById(idx+1);
-        if(p)addTrackDiv('track-alley-map',Number(p.norm_x),Number(p.norm_y),34,29);
+        if(p)addTrackDiv('track-alley-map',Number(p.norm_x),Number(p.norm_y),43,36);
       }else if(m.type==='COACH'){
         ia=start+Number(m.from||0);ib=start+Number(m.to||0);
         a=trackPointById(ia+1);b=trackPointById(ib+1);
