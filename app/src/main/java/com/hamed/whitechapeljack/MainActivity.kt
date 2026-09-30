@@ -253,7 +253,7 @@ fun WhitechapelApp(store: GameStore) {
             "detective" -> save()
             "unlock" -> page = "detective"
             "audit" -> page = "home"
-            "newmap", "digital", "settings" -> page = "home"
+            "newmap", "newmap2", "digital", "digital2", "settings" -> page = "home"
             "home" -> Unit
         }
     }
@@ -264,10 +264,13 @@ fun WhitechapelApp(store: GameStore) {
             "home" -> Home(
                 hasGame = store.exists(),
                 hasMapGame = DigitalGameStore.exists(appContext),
+                hasTwoPhoneGame = DigitalGameStore.exists(appContext,true),
                 onNewGame = { page = "newgame" },
                 onContinue = { if (load()) page = if (gameOver) "audit" else "detective" },
                 onNewMapGame = { page = "newmap" },
                 onContinueMap = { page = "digital" },
+                onNewTwoPhoneGame = { page = "newmap2" },
+                onContinueTwoPhone = { page = "digital2" },
                 onSettings = { page = "settings" }
             )
             "settings" -> AppearanceSettingsPage(
@@ -275,7 +278,8 @@ fun WhitechapelApp(store: GameStore) {
                 onChanged = { updated -> AppearanceStore.save(appContext, updated); appearanceRevision++ },
                 onBack = { page = "home" }
             )
-            "digital" -> DigitalGamePage(onBack = { page = "home" })
+            "digital" -> DigitalGamePage(onBack = { page = "home" }, twoPhone = false)
+            "digital2" -> DigitalGamePage(onBack = { page = "home" }, twoPhone = true)
 
             "newgame" -> NewGame(onBack = { page = "home" }) { h, p ->
                 hideout = h
@@ -292,8 +296,13 @@ fun WhitechapelApp(store: GameStore) {
             }
 
             "newmap" -> NewGame(onBack = { page = "home" }) { h, p ->
-                DigitalGameStore.newGame(appContext, h, GameStore.hash(p))
+                DigitalGameStore.newGame(appContext, h, GameStore.hash(p), twoPhone = false)
                 page = "digital"
+            }
+
+            "newmap2" -> NewGame(onBack = { page = "home" }, requirePin = false) { h, _ ->
+                DigitalGameStore.newGame(appContext, h, "", twoPhone = true)
+                page = "digital2"
             }
 
             "jack" -> JackPage(
@@ -425,10 +434,13 @@ private fun ServerQrCode(
 private fun Home(
     hasGame: Boolean,
     hasMapGame: Boolean,
+    hasTwoPhoneGame: Boolean,
     onNewGame: () -> Unit,
     onContinue: () -> Unit,
     onNewMapGame: () -> Unit,
     onContinueMap: () -> Unit,
+    onNewTwoPhoneGame: () -> Unit,
+    onContinueTwoPhone: () -> Unit,
     onSettings: () -> Unit
 ) {
     var pendingNewGame by remember { mutableStateOf<String?>(null) }
@@ -441,22 +453,32 @@ private fun Home(
         Column(Modifier.fillMaxSize().padding(horizontal = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.weight(.20f))
 if (TvServerInfo.url.isNotBlank()) {
-    ServerQrCode(
-        url = TvServerInfo.url,
-        modifier = Modifier.padding(bottom = 8.dp)
-    )
-    Text(
-        "نمایش عمومی: ${TvServerInfo.url}",
-        color = Gold,
-        fontSize = 12.sp,
-        modifier = Modifier
-            .padding(bottom = 10.dp)
-            .clickable {
-                clipboard.setText(
-                    AnnotatedString(TvServerInfo.url)
-                )
-                Toast.makeText(context, "کپی شد", Toast.LENGTH_SHORT).show()
+    val detectiveToken = DigitalGameStore.detectiveToken(context)
+    val detectiveUrl = if (hasTwoPhoneGame && detectiveToken.isNotBlank()) "${TvServerInfo.url}/detective?k=$detectiveToken" else ""
+    if (detectiveUrl.isNotBlank()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Top) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                ServerQrCode(url = TvServerInfo.url)
+                Text("Public", color = Gold, fontSize = 11.sp)
             }
+            Spacer(Modifier.width(24.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                ServerQrCode(url = detectiveUrl)
+                Text("Detective", color = Gold, fontSize = 11.sp)
+            }
+        }
+    } else {
+        ServerQrCode(url = TvServerInfo.url, modifier = Modifier.padding(bottom = 8.dp))
+    }
+    Text(
+        "نمایش عمومی: ${TvServerInfo.url}", color = Gold, fontSize = 12.sp,
+        modifier = Modifier.padding(bottom = if(detectiveUrl.isBlank()) 10.dp else 3.dp).clickable {
+            clipboard.setText(AnnotatedString(TvServerInfo.url));Toast.makeText(context, "کپی شد", Toast.LENGTH_SHORT).show()
+        }
+    )
+    if(detectiveUrl.isNotBlank()) Text(
+        "کارآگاه: $detectiveUrl", color = Color(0xFFF2DFC0), fontSize = 10.sp, maxLines = 1,
+        modifier = Modifier.padding(bottom = 8.dp).clickable { clipboard.setText(AnnotatedString(detectiveUrl));Toast.makeText(context, "کپی شد", Toast.LENGTH_SHORT).show() }
     )
 }
             HomeGameRow(
@@ -475,6 +497,14 @@ if (TvServerInfo.url.isNotBlank()) {
                 onContinue = onContinue
             )
             Spacer(Modifier.height(12.dp))
+            HomeGameRow(
+                newTitle = "شروع بازی جدید با دو گوشی",
+                newIcon = "📱📱",
+                continueEnabled = hasTwoPhoneGame,
+                onNew = { if (hasTwoPhoneGame) pendingNewGame = "two_phone" else onNewTwoPhoneGame() },
+                onContinue = onContinueTwoPhone
+            )
+            Spacer(Modifier.height(12.dp))
             HomeSettingsButton(onSettings)
             Spacer(Modifier.weight(.12f))
         }
@@ -491,7 +521,7 @@ if (TvServerInfo.url.isNotBlank()) {
                 TextButton(onClick = {
                     val target = pendingNewGame
                     pendingNewGame = null
-                    if (target == "digital") onNewMapGame() else onNewGame()
+                    if (target == "digital") onNewMapGame() else if(target == "two_phone") onNewTwoPhoneGame() else onNewGame()
                 }) { Text("قبول") }
             },
             dismissButton = {
@@ -502,14 +532,14 @@ if (TvServerInfo.url.isNotBlank()) {
 }
 
 @Composable
-private fun NewGame(onBack: () -> Unit, onStart: (Int, String) -> Unit) {
+private fun NewGame(onBack: () -> Unit, requirePin: Boolean = true, onStart: (Int, String) -> Unit) {
     var h by remember { mutableStateOf("") }
     var pin by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var showHideoutPicker by remember { mutableStateOf(false) }
     val hideoutNumber = h.toIntOrNull()
     val redHouseIds = setOf(3, 21, 27, 65, 84, 147, 149, 158)
-    val valid = hideoutNumber != null && hideoutNumber in 1..195 && hideoutNumber !in redHouseIds && pin.length in 4..6 && pin == confirm
+    val valid = hideoutNumber != null && hideoutNumber in 1..195 && hideoutNumber !in redHouseIds && (!requirePin || (pin.length in 4..6 && pin == confirm))
 
     Background {
         Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -534,13 +564,17 @@ private fun NewGame(onBack: () -> Unit, onStart: (Int, String) -> Unit) {
                 Text("🔒  مخفیگاه برای کل بازی ثابت می‌ماند و نمی‌تواند یکی از خانه‌های قرمز باشد.", color = Color.Black, fontSize = 13.sp)
                 if (hideoutNumber != null && hideoutNumber in redHouseIds) Text("خانه قرمز برای مخفیگاه مجاز نیست.", color = Color(0xFF8D0000), fontSize = 12.sp)
             }
-            GrayCard {
-                Text("🔐  تعیین PIN جک", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "PIN")
-                PinField(confirm, { confirm = it.filter(Char::isDigit).take(6) }, "تکرار PIN")
-                if (confirm.isNotEmpty() && pin != confirm) Text("PINها یکسان نیستند.", color = Color(0xFF8D0000), fontSize = 12.sp)
+            if(requirePin) {
+                GrayCard {
+                    Text("🔐  تعیین PIN جک", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    PinField(pin, { pin = it.filter(Char::isDigit).take(6) }, "PIN")
+                    PinField(confirm, { confirm = it.filter(Char::isDigit).take(6) }, "تکرار PIN")
+                    if (confirm.isNotEmpty() && pin != confirm) Text("PINها یکسان نیستند.", color = Color(0xFF8D0000), fontSize = 12.sp)
+                }
+            } else {
+                GrayCard { Text("📱📱  حالت دوگوشی: گوشی اصلی فقط برای جک است و نیازی به PIN ندارد.", color = Color.Black, fontSize = 14.sp) }
             }
-            RedButton("▶   شروع بازی", valid) { onStart(h.toInt(), pin) }
+            RedButton("▶   شروع بازی", valid) { onStart(h.toInt(), if(requirePin) pin else "") }
         }
     }
 

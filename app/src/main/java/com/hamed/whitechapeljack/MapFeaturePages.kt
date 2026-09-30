@@ -106,49 +106,95 @@ private fun DigitalIntroPage(type: String, night: Int, houses: List<Int> = empty
 }
 
 object DigitalGameStore {
-    private const val PREF="whitechapel_digital_final"; private const val KEY="game"
-    fun exists(c:Context)=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).contains(KEY)
-    fun newGame(c:Context,hideout:Int,pin:String){
-        val o=JSONObject().put("hideout",hideout).put("pin",pin).put("night",1).put("phase","HELL_WOMEN").put("time",1)
+    private const val PREF="whitechapel_digital_final"
+    private const val KEY="game"
+    private const val KEY_TWO="game_two_phone"
+
+    private fun key(twoPhone:Boolean)=if(twoPhone) KEY_TWO else KEY
+    fun exists(c:Context,twoPhone:Boolean=false)=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).contains(key(twoPhone))
+    fun isTwoPhone(o:JSONObject)=o.optString("gameMode")=="two_phone"
+    fun detectiveToken(c:Context):String=load(c,true)?.optString("detectiveToken","").orEmpty()
+
+    fun newGame(c:Context,hideout:Int,pin:String,twoPhone:Boolean=false){
+        val token=if(twoPhone) java.security.SecureRandom().let { r -> ByteArray(12).also(r::nextBytes).joinToString(""){"%02x".format(it.toInt() and 0xff)} } else ""
+        val o=JSONObject().put("hideout",hideout).put("pin",if(twoPhone) "" else pin).put("gameMode",if(twoPhone)"two_phone" else "single_phone")
+            .put("detectiveToken",token).put("night",1).put("phase","HELL_WOMEN").put("time",1)
             .put("women",JSONArray()).put("police",JSONArray()).put("crime",JSONArray()).put("crimeNight",JSONObject()).put("clues",JSONArray()).put("jackPath",JSONArray()).put("jackMoves",JSONArray()).put("moveTrack",0).put("policeDone",JSONArray()).put("policeSearched",JSONArray()).put("policeIndex",0).put("previousPolicePoints",JSONArray()).put("publicMessage","شب ۱ آغاز شد.")
         startDigitalIntro(o, "hell")
         save(c,o)
     }
-    fun load(c:Context):JSONObject?=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).getString(KEY,null)?.let{runCatching{JSONObject(it)}.getOrNull()}
-    fun save(c:Context,o:JSONObject){c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().putString(KEY,o.toString()).apply();publish(c,o)}
+    fun load(c:Context,twoPhone:Boolean=false):JSONObject?=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).getString(key(twoPhone),null)?.let{runCatching{JSONObject(it)}.getOrNull()}
+    fun save(c:Context,o:JSONObject){
+        o.put("updatedAt",System.currentTimeMillis())
+        c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().putString(key(isTwoPhone(o)),o.toString()).apply();publish(c,o)
+    }
     private fun points(c:Context,file:String)=JSONArray(c.assets.open(file).bufferedReader().use{it.readText()}).let{a->List(a.length()){i->val x=a.getJSONObject(i);BoardPoint(x.optInt("id",i+1),x.getInt("x"),x.getInt("y"),x.getDouble("norm_x").toFloat(),x.getDouble("norm_y").toFloat(),x.getInt("number"))}.associateBy{it.number}}
-    fun publish(c:Context){ val o=load(c)?:return; publish(c,o) }
-    private fun publish(c:Context,o:JSONObject){
+    fun publish(c:Context){ val o=load(c)?:load(c,true)?:return; publish(c,o) }
+    fun publish(c:Context,o:JSONObject){
         val houses=points(c,"houses.json");val pp=points(c,"polises.json");val pub=JSONObject().put("mode","digital").put("night",o.optInt("night",1)).put("phase",o.optString("phase")).put("time",o.optInt("time",1))
         val publicAppearance=AppearanceStore.load(c).publicDisplay
         val phase=o.optString("phase")
         val victimsRevealed=phase !in setOf("HELL_WOMEN","HAND_POLICE","HELL_POLICE","HAND_JACK")
-        // Hell setup selections are private drafts. Do not publish individual clicks to the TV:
-        // victims become public together only after Jack presses handoff to Detective (HAND_POLICE),
-        // and patrols become public together only after Detective presses handoff to Jack (HAND_JACK).
         val wa=JSONArray(); val women=o.optJSONArray("women")?:JSONArray();if(phase!="HELL_WOMEN")for(i in 0 until women.length()){val x=women.getJSONObject(i);houses[x.getInt("point")]?.let{p->wa.put(JSONObject().put("x",p.normX).put("y",p.normY).put("revealed",victimsRevealed).put("real",x.optBoolean("real",true)))}}
         val pa=JSONArray();val police=o.optJSONArray("police")?:JSONArray();if(phase!="HELL_POLICE")for(i in 0 until police.length()){val x=police.getJSONObject(i);pp[x.getInt("point")]?.let{p->val item=JSONObject().put("x",p.normX).put("y",p.normY).put("revealed",x.optBoolean("revealed",false)).put("real",x.optBoolean("real",true)).put("id",x.optInt("id",1));pa.put(item)}}
         val ca=JSONArray();val crimes=o.optJSONArray("crime")?:JSONArray();val currentCrimes=currentCrimePoints(o);for(i in 0 until crimes.length()){val crimeId=crimes.getInt(i);houses[crimeId]?.let{p->ca.put(JSONObject().put("x",p.normX).put("y",p.normY).put("current",crimeId in currentCrimes))}}
         val cla=JSONArray();val clues=o.optJSONArray("clues")?:JSONArray();for(i in 0 until clues.length()){houses[clues.getInt(i)]?.let{p->cla.put(JSONObject().put("x",p.normX).put("y",p.normY))}}
         val moveSpecials=JSONArray();var usedTrack=0;val jackMoves=o.optJSONArray("jackMoves")?:JSONArray()
         for(i in 0 until jackMoves.length()){
-            val type=jackMoves.optJSONObject(i)?.optString("type").orEmpty()
-            val cost=if(type=="COACH")2 else 1
-            if(type=="COACH" || type=="ALLEY") moveSpecials.put(JSONObject().put("type",type).put("from",usedTrack+1).put("to",usedTrack+cost))
-            usedTrack+=cost
+            val type=jackMoves.optJSONObject(i)?.optString("type").orEmpty();val cost=if(type=="COACH")2 else 1
+            if(type=="COACH" || type=="ALLEY") moveSpecials.put(JSONObject().put("type",type).put("from",usedTrack+1).put("to",usedTrack+cost));usedTrack+=cost
         }
-        val setupCrossings=JSONArray()
-        if(phase=="HELL_POLICE") YELLOW_CROSSING_IDS.forEach { id ->
-            pp[id]?.let { p -> setupCrossings.put(JSONObject().put("x",p.normX).put("y",p.normY)) }
-        }
+        val setupCrossings=JSONArray();if(phase=="HELL_POLICE") YELLOW_CROSSING_IDS.forEach { id -> pp[id]?.let { p -> setupCrossings.put(JSONObject().put("x",p.normX).put("y",p.normY)) } }
         pub.put("women",wa).put("digitalPolice",pa).put("crime",ca).put("clues",cla).put("setupCrossings",setupCrossings)
-            .put("moveTrack",o.optInt("moveTrack",0)).put("moveSpecials",moveSpecials)
-            .put("appearance",publicAppearance.toJson()).put("publicMessage",o.optString("publicMessage","")).put("publicPhase",publicPhaseName(o.optString("phase")))
-            .put("introType",o.optString("introType","")).put("introId",o.optLong("introId",0))
-            .put("introHouses",o.optJSONArray("introHouses")?:JSONArray());TvMapHub.setState(pub)
+            .put("moveTrack",o.optInt("moveTrack",0)).put("moveSpecials",moveSpecials).put("appearance",publicAppearance.toJson()).put("publicMessage",o.optString("publicMessage","")).put("publicPhase",publicPhaseName(o.optString("phase")))
+            .put("introType",o.optString("introType","")).put("introId",o.optLong("introId",0)).put("introHouses",o.optJSONArray("introHouses")?:JSONArray());TvMapHub.setState(pub)
+    }
+
+    fun detectiveState(c:Context,token:String):JSONObject{
+        val o=load(c,true)?:return JSONObject().put("ok",false).put("error","No two-phone game")
+        if(token.isBlank() || token!=o.optString("detectiveToken")) return JSONObject().put("ok",false).put("error","Invalid detective link")
+        val phase=o.optString("phase");val detectivePhases=setOf("HELL_POLICE","HELL_MOVE_WOMEN","HUNT_POLICE_MOVE","HUNT_POLICE_ACTION")
+        val introRunning=o.optString("introType","").isNotBlank();val out=JSONObject().put("ok",true).put("night",o.optInt("night",1)).put("time",o.optInt("time",1)).put("phase",phase).put("active",phase in detectivePhases && !introRunning).put("introRunning",introRunning).put("updatedAt",o.optLong("updatedAt",0)).put("message",o.optString("publicMessage",""))
+        val pa=JSONArray();(o.optJSONArray("police")?:JSONArray()).let{a->for(i in 0 until a.length()){val x=a.getJSONObject(i);pa.put(JSONObject().put("id",x.optInt("id")).put("point",x.optInt("point")).put("real",x.optBoolean("real",true)).put("revealed",x.optBoolean("revealed",false)).put("color",x.optString("color","#777777")))}};out.put("police",pa)
+        val wa=JSONArray();(o.optJSONArray("women")?:JSONArray()).let{a->for(i in 0 until a.length()){val x=a.getJSONObject(i);wa.put(JSONObject().put("id",x.optInt("id")).put("point",x.optInt("point")))}};out.put("women",wa)
+        out.put("crime",o.optJSONArray("crime")?:JSONArray()).put("clues",o.optJSONArray("clues")?:JSONArray()).put("previousPolicePoints",o.optJSONArray("previousPolicePoints")?:JSONArray()).put("policeDone",o.optJSONArray("policeDone")?:JSONArray()).put("policeSearched",o.optJSONArray("policeSearched")?:JSONArray())
+        return out
+    }
+
+    fun detectiveAction(c:Context,token:String,action:String,args:Map<String,String>):JSONObject{
+        val o=load(c,true)?:return JSONObject().put("ok",false).put("error","No two-phone game")
+        if(token.isBlank() || token!=o.optString("detectiveToken")) return JSONObject().put("ok",false).put("error","Invalid detective link")
+        val phase=o.optString("phase");fun bad(m:String)=JSONObject().put("ok",false).put("error",m)
+        if(o.optString("introType","").isNotBlank()) return bad("Intro is still running")
+        val id=args["id"]?.toIntOrNull();val point=args["point"]?.toIntOrNull();val police=o.optJSONArray("police")?.tokens().orEmpty();val women=o.optJSONArray("women")?.tokens().orEmpty()
+        when(action){
+            "placePolice"->{
+                if(phase!="HELL_POLICE"||id==null||point==null||id !in 1..7)return bad("Invalid police placement")
+                val prev=(o.optJSONArray("previousPolicePoints")?:JSONArray()).intSet();val extra=YELLOW_CROSSING_IDS-prev;val allowed=if(o.optInt("night",1)==1)YELLOW_CROSSING_IDS else prev+extra
+                if(point !in allowed)return bad("This crossing is not allowed")
+                val list=police.toMutableList();if(list.any{it.id!=id&&it.point==point})return bad("Crossing already occupied")
+                if(o.optInt("night",1)>1 && point in extra){val projected=(list.filter{it.id!=id}.map{it.point}+point).count{it in extra};if(projected>2)return bad("Only two new yellow crossings are allowed")}
+                val colors=AppearanceStore.load(c).phone.policeColors;val t=DToken(id,point,colors[if(id<=5)id-1 else 5],id<=5,false);val k=list.indexOfFirst{it.id==id};if(k>=0)list[k]=t else list+=t;o.put("police",list.json())
+            }
+            "finishPoliceSetup"->{
+                if(phase!="HELL_POLICE")return bad("Wrong phase")
+                val pts=police.map{it.point}.toSet();val prev=(o.optJSONArray("previousPolicePoints")?:JSONArray()).intSet();val extra=YELLOW_CROSSING_IDS-prev;val valid=police.size==7&&pts.size==7&&if(o.optInt("night",1)==1)pts==YELLOW_CROSSING_IDS else prev.size==5&&prev.all{it in pts}&&pts.count{it in extra}==2
+                if(!valid)return bad("Police setup is incomplete")
+                o.put("women",women.filter{it.real}.json()).put("time",1).put("phase","HELL_DECISION");setPublicMessage(o,"قربانی‌های جعلی حذف شدند و قربانی‌های واقعی روی نقشه باقی ماندند.")
+            }
+            "moveWoman"->{if(phase!="HELL_MOVE_WOMEN"||id==null||point==null)return bad("Wrong phase");if(point in (o.optJSONArray("crime")?:JSONArray()).intSet())return bad("Crime scene is blocked");val list=women.toMutableList();val k=list.indexOfFirst{it.id==id};if(k<0)return bad("Victim not found");if(list.any{it.id!=id&&it.point==point})return bad("House already occupied");list[k]=list[k].copy(point=point);o.put("women",list.json())}
+            "finishWomenMove"->{if(phase!="HELL_MOVE_WOMEN")return bad("Wrong phase");o.put("phase","HELL_REVEAL_POLICE")}
+            "movePolice"->{if(phase!="HUNT_POLICE_MOVE"||id==null||point==null)return bad("Wrong phase");val list=police.toMutableList();val k=list.indexOfFirst{it.id==id&&it.real};if(k<0)return bad("Police not found");if(list.any{it.id!=id&&it.point==point})return bad("Crossing occupied");list[k]=list[k].copy(point=point,revealed=true);o.put("police",list.json())}
+            "finishPoliceMove"->{if(phase!="HUNT_POLICE_MOVE")return bad("Wrong phase");o.put("policeDone",JSONArray()).put("policeSearched",JSONArray()).put("policeIndex",0).put("phase","HUNT_POLICE_ACTION");setPublicMessage(o,"حرکت پلیس‌ها پایان یافت؛ مرحله سرنخ و دستگیری آغاز شد.")}
+            "search"->{if(phase!="HUNT_POLICE_ACTION"||id==null||point==null)return bad("Wrong phase");if(police.none{it.id==id&&it.real})return bad("Police not found");val done=(o.optJSONArray("policeDone")?:JSONArray()).intSet();if(id in done)return bad("Police action already finished");val path=o.optJSONArray("jackPath")?:JSONArray();val visited=(0 until path.length()).any{path.optInt(it)==point};markPoliceSearched(o,id);if(visited){val ca=o.optJSONArray("clues")?:JSONArray();if((0 until ca.length()).none{ca.optInt(it)==point})ca.put(point);o.put("clues",ca);markPoliceDone(o,id);setPublicMessage(o,"سرنخ پیدا شد — جک از خانه $point عبور کرده است.")}else setPublicMessage(o,"جک از خانه $point عبور نکرده است.")}
+            "endSearch"->{if(phase!="HUNT_POLICE_ACTION"||id==null)return bad("Wrong phase");markPoliceDone(o,id);setPublicMessage(o,"استعلام‌های سرنخ یک پلیس پایان یافت.")}
+            "arrest"->{if(phase!="HUNT_POLICE_ACTION"||id==null||point==null)return bad("Wrong phase");if(police.none{it.id==id&&it.real})return bad("Police not found");if(id in (o.optJSONArray("policeDone")?:JSONArray()).intSet())return bad("Police action already finished");if(id in (o.optJSONArray("policeSearched")?:JSONArray()).intSet())return bad("This police already searched");val path=o.optJSONArray("jackPath")?:JSONArray();val current=if(path.length()>0)path.optInt(path.length()-1) else -1;if(current==point){o.put("phase","GAME_OVER_POLICE");setPublicMessage(o,"دستگیری موفق بود — جک در خانه $point دستگیر شد.")}else{markPoliceDone(o,id);setPublicMessage(o,"دستگیری ناموفق بود — جک در خانه $point نیست.")}}
+            "handoffJack"->{if(phase!="HUNT_POLICE_ACTION")return bad("Wrong phase");setPublicMessage(o,"نوبت کارآگاه‌ها پایان یافت؛ نوبت جک آغاز شد.");o.put("phase","HUNT_JACK")}
+            else->return bad("Unknown action")
+        }
+        save(c,o);return JSONObject().put("ok",true).put("state",detectiveState(c,token))
     }
 }
-
 private fun JSONArray.tokens():MutableList<DToken>{val r=mutableListOf<DToken>();for(i in 0 until length()){val x=getJSONObject(i);r+=DToken(x.getInt("id"),x.getInt("point"),x.optString("color","#FFFFFF"),x.optBoolean("real",true),x.optBoolean("revealed",false))};return r}
 private fun List<DToken>.json():JSONArray{val a=JSONArray();forEach{a.put(JSONObject().put("id",it.id).put("point",it.point).put("color",it.color).put("real",it.real).put("revealed",it.revealed))};return a}
 private fun womenCounts(n:Int)=when(n){1->8 to 5;2->7 to 4;3->6 to 3;else->4 to 1}
@@ -214,10 +260,19 @@ private fun publicPhaseName(phase:String)=when(phase){
 }
 private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",message)}
 
-@Composable fun DigitalGamePage(onBack:()->Unit){
-    val ctx=LocalContext.current;var rev by remember{mutableIntStateOf(0)};var selectedId by remember{mutableIntStateOf(1)};var action by remember{mutableStateOf("search")}
+@Composable fun DigitalGamePage(onBack:()->Unit, twoPhone:Boolean=false){
+    val ctx=LocalContext.current;var rev by remember{mutableIntStateOf(0)};
+    var lastSeenUpdate by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(twoPhone) {
+        if(twoPhone) while(true){
+            val stamp=DigitalGameStore.load(ctx,true)?.optLong("updatedAt",0L)?:0L
+            if(stamp!=0L && stamp!=lastSeenUpdate){ lastSeenUpdate=stamp; rev++ }
+            delay(700)
+        }
+    }
+    var selectedId by remember{mutableIntStateOf(1)};var action by remember{mutableStateOf("search")}
     var victimPlacementType by remember { mutableStateOf(VictimPlacementType.REAL) }
-    val o=remember(rev){DigitalGameStore.load(ctx)}
+    val o=remember(rev,twoPhone){DigitalGameStore.load(ctx,twoPhone)}
     if(o==null){Column(Modifier.fillMaxSize().background(Color(0xFF100E0C)).padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("بازی با نقشه‌ای ذخیره نشده است.",color=Color.White);Button(onClick=onBack){Text("بازگشت")}};return}
     val phase=o.optString("phase");val night=o.optInt("night",1);val time=o.optInt("time",1);val women=o.optJSONArray("women")!!.tokens();val police=o.optJSONArray("police")!!.tokens()
     val introType=o.optString("introType","")
@@ -226,7 +281,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
     if(introType=="hell" || introType=="hunting"){
         LaunchedEffect(introId){
             delay(if(introType=="hunting")4700 else 3900)
-            val latest=DigitalGameStore.load(ctx)
+            val latest=DigitalGameStore.load(ctx,twoPhone)
             if(latest!=null && latest.optLong("introId",0L)==introId){
                 latest.remove("introType")
                 latest.remove("introId")
@@ -238,6 +293,17 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
         DigitalIntroPage(introType,night,introHouses)
         return
     }
+    val detectiveOwned = phase in setOf("HELL_POLICE","HELL_MOVE_WOMEN","HUNT_POLICE_MOVE","HUNT_POLICE_ACTION")
+    if(twoPhone && detectiveOwned){
+        Column(Modifier.fillMaxSize().background(Color(0xFF100E0C)).padding(20.dp),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){
+            Text("منتظر حرکت کارآگاه",color=Color.White,fontSize=28.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center)
+            Spacer(Modifier.height(14.dp))
+            Text("کنترل بازی اکنون روی گوشی کارآگاه است.",color=FGold,fontSize=14.sp,textAlign=TextAlign.Center)
+            Spacer(Modifier.height(24.dp))
+            TextButton(onClick=onBack){Text("‹ خانه",color=FGold)}
+        }
+        return
+    }
     val trackVisual=moveTrackVisual(o)
     val phoneAppearance=remember(rev){AppearanceStore.load(ctx).phone}
     fun policeColor(token:DToken, identityVisible:Boolean=true)=hc(phoneAppearance.policeColor(token.id,token.real,identityVisible))
@@ -246,7 +312,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
     var pendingPoint by remember(phase){mutableStateOf<Int?>(null)}
     var hideoutVisible by remember(phase){mutableStateOf(false)}
     val jackPrivatePhase = phase in setOf("HELL_WOMEN","HELL_DECISION","HELL_REVEAL_POLICE","HELL_KILL","HUNT_JACK")
-    LaunchedEffect(Unit) { DigitalGameStore.publish(ctx) }
+    LaunchedEffect(Unit) { DigitalGameStore.publish(ctx,o) }
     val hp=rememberBoardPointsFeature("houses.json");val pp=rememberBoardPointsFeature("polises.json")
     LaunchedEffect(phase) {
         selectedId = 1
@@ -320,7 +386,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                     o.put("women", list.json())
                     save()
                 },Modifier.weight(1f),crimePoints=previousCrimeScenes,currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART,moveTrackVisual=trackVisual)
-                Button(onClick={setPhase("HAND_POLICE")},enabled=realCount==realTarget && fakeCount==fakeTarget,modifier=Modifier.fillMaxWidth()){Text("تحویل به کارآگاه")}
+                Button(onClick={setPhase(if(twoPhone) "HELL_POLICE" else "HAND_POLICE")},enabled=realCount==realTarget && fakeCount==fakeTarget,modifier=Modifier.fillMaxWidth()){Text("تحویل به کارآگاه")}
             }
             "HAND_POLICE"->Handoff("گوشی را به کارآگاه بدهید"){setPhase("HELL_POLICE")}
             "HELL_POLICE"->{
@@ -373,7 +439,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                 Button(onClick={setPhase("HAND_JACK")},enabled=setupValid,modifier=Modifier.fillMaxWidth()){Text("تحویل به جک")}
             }
             "HAND_JACK"->Handoff("گوشی را به جک بدهید") {val realWomen=women.filter{it.real};o.put("women",realWomen.json()).put("time",1);setPublicMessage(o,"قربانی‌های جعلی حذف شدند و قربانی‌های واقعی روی نقشه باقی ماندند.");setPhase("HELL_DECISION")}
-            "HELL_DECISION"->{Text("زمان ارتکاب جرم: ${roman(time)}",color=FGold,fontSize=24.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth(),textAlign=TextAlign.Center);Spacer(Modifier.weight(1f));Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Button(onClick={setPhase("HELL_KILL")},colors=ButtonDefaults.buttonColors(containerColor=FBlood),modifier=Modifier.weight(1f)){Text("کشتن")};Button(onClick={val next=(time+1).coerceAtMost(5);o.put("time",next);setPublicMessage(o,"جک منتظر ماند؛ زمان ارتکاب جرم به ${roman(next)} منتقل شد.");setPhase("HELL_WAIT_HANDOFF")},enabled=time<5,modifier=Modifier.weight(1f)){Text(if(time<5)"انتظار" else "در V باید بکشد")}};Spacer(Modifier.weight(1f))}
+            "HELL_DECISION"->{Text("زمان ارتکاب جرم: ${roman(time)}",color=FGold,fontSize=24.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth(),textAlign=TextAlign.Center);Spacer(Modifier.weight(1f));Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Button(onClick={setPhase("HELL_KILL")},colors=ButtonDefaults.buttonColors(containerColor=FBlood),modifier=Modifier.weight(1f)){Text("کشتن")};Button(onClick={val next=(time+1).coerceAtMost(5);o.put("time",next);setPublicMessage(o,"جک منتظر ماند؛ زمان ارتکاب جرم به ${roman(next)} منتقل شد.");setPhase(if(twoPhone) "HELL_MOVE_WOMEN" else "HELL_WAIT_HANDOFF")},enabled=time<5,modifier=Modifier.weight(1f)){Text(if(time<5)"انتظار" else "در V باید بکشد")}};Spacer(Modifier.weight(1f))}
             "HELL_WAIT_HANDOFF"->Handoff("گوشی را به کارآگاه بدهید\n"){setPhase("HELL_MOVE_WOMEN")}
             "HELL_MOVE_WOMEN"->{
                 val preview=women.map{token->if(token.id==movingTokenId && pendingPoint!=null)token.copy(point=pendingPoint!!) else token}
@@ -444,7 +510,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                             o.put("police",revealed.json()).put("policeIndex",0)
                             setPublicMessage(o,"دو قتل شب سوم رخ داد؛ هر دو محل قتل ثبت شدند و تعقیب با نوبت پلیس آغاز می‌شود.")
                             startDigitalIntro(o,"hunting",listOf(firstDoubleKill,victim.point))
-                            setPhase("HUNT_POLICE_HANDOFF")
+                            setPhase(if(twoPhone) "HUNT_POLICE_MOVE" else "HUNT_POLICE_HANDOFF")
                         }
                     }else{
                         val crimes=o.optJSONArray("crime")?:JSONArray(); if((0 until crimes.length()).none{crimes.getInt(it)==victim.point}) crimes.put(victim.point)
@@ -454,7 +520,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                         o.put("police",revealed.json()).put("policeIndex",0)
                         setPublicMessage(o,"قتل در خانه ${victim.point} رخ داد؛ محل قتل ثبت شد و مرحله تعقیب آغاز شد.")
                         startDigitalIntro(o,"hunting",listOf(victim.point))
-                        setPhase("HUNT_JACK_UNLOCK")
+                        setPhase(if(twoPhone) "HUNT_JACK" else "HUNT_JACK_UNLOCK")
                     }
                 },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=police.associate{it.point to policeColor(it,it.revealed)},crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART,moveTrackVisual=trackVisual)
             }

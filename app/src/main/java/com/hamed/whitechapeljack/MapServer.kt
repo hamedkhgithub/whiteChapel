@@ -80,16 +80,21 @@ class TvMapServer(private val context: Context, private val port: Int = 8766) {
         socket.use { s ->
             val reader = BufferedReader(InputStreamReader(s.getInputStream()))
             val request = reader.readLine() ?: return
-            val path = request.split(" ").getOrNull(1) ?: "/"
+            val parts=request.split(" ");val method=parts.getOrNull(0)?:"GET";val path=parts.getOrNull(1)?:"/"
+            var contentLength=0
             while (true) {
                 val line = reader.readLine() ?: break
                 if (line.isBlank()) break
+                if(line.lowercase().startsWith("content-length:")) contentLength=line.substringAfter(":").trim().toIntOrNull()?:0
             }
-            when (path.substringBefore("?")) {
+            val body=if(contentLength>0){val chars=CharArray(contentLength);var off=0;while(off<contentLength){val n=reader.read(chars,off,contentLength-off);if(n<=0)break;off+=n};chars.concatToString(0,off)}else ""
+            val route=path.substringBefore("?")
+            when (route) {
                 "/", "/index.html" -> sendText(s, "text/html; charset=utf-8", html())
                 "/state" -> sendText(s, "application/json; charset=utf-8", TvMapHub.getState(), noCache = true)
                 "/map" -> sendDrawable(s, R.drawable.whitechapel_board_base, "image/png")
                 "/houses" -> sendAsset(s, "houses.json", "application/json; charset=utf-8")
+                "/police-points" -> sendAsset(s, "polises.json", "application/json; charset=utf-8")
                 "/move-track" -> sendAsset(s, "move_track_points.json", "application/json; charset=utf-8")
                 "/jack-token" -> sendDrawable(s, R.drawable.jack_track_token, "image/png")
                 "/coach-token" -> sendDrawable(s, R.drawable.coach_track_token_legacy, "image/png")
@@ -97,9 +102,23 @@ class TvMapServer(private val context: Context, private val port: Int = 8766) {
                 "/qr" -> sendQr(s)
                 "/intro-hell" -> sendAsset(s, "intro-hell.html", "text/html; charset=utf-8")
                 "/intro-hunting" -> sendHuntingIntro(s, path)
+                "/detective" -> sendText(s,"text/html; charset=utf-8",detectiveHtml(),noCache=true)
+                "/detective-state" -> {
+                    val q=parseParams(path.substringAfter("?",""));sendText(s,"application/json; charset=utf-8",DigitalGameStore.detectiveState(context,q["k"].orEmpty()).toString(),noCache=true)
+                }
+                "/detective-action" -> {
+                    val q=parseParams(if(method=="POST") body else path.substringAfter("?",""));val token=q["k"].orEmpty();val action=q["action"].orEmpty()
+                    sendText(s,"application/json; charset=utf-8",DigitalGameStore.detectiveAction(context,token,action,q).toString(),noCache=true)
+                }
                 else -> sendText(s, "text/plain; charset=utf-8", "Not found", status = "404 Not Found")
             }
         }
+    }
+
+    private fun parseParams(raw:String):Map<String,String>{
+        if(raw.isBlank())return emptyMap();return raw.split('&').mapNotNull{part->
+            val k=part.substringBefore('=',"");if(k.isBlank())null else URLDecoder.decode(k,"UTF-8") to URLDecoder.decode(part.substringAfter('=',""),"UTF-8")
+        }.toMap()
     }
 
     private fun sendHuntingIntro(socket: Socket, requestPath: String) {
@@ -161,6 +180,33 @@ class TvMapServer(private val context: Context, private val port: Int = 8766) {
         val header = "HTTP/1.1 $status\r\nContent-Type: $contentType\r\nContent-Length: ${bytes.size}\r\n${cache}Connection: close\r\n\r\n"
         socket.getOutputStream().apply { write(header.toByteArray()); write(bytes); flush() }
     }
+
+    private fun detectiveHtml(): String = """<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>White Chapel Detective</title><style>
+html,body{margin:0;background:#100e0c;color:#eee;font-family:Arial,sans-serif;height:100%;overflow:hidden}*{box-sizing:border-box}
+#top{height:92px;background:#17130f;border-bottom:1px solid #6e5734;padding:8px;text-align:center}#title{font-size:20px;font-weight:bold;color:#d6ad63}#status{font-size:13px;margin-top:5px;color:#eee}#controls{height:94px;padding:6px;overflow:auto;text-align:center;background:#211b16}.btn{display:inline-block;padding:9px 12px;margin:3px;border:1px solid #80673f;border-radius:7px;background:#34291f;color:#fff;font-weight:bold}.sel{border:2px solid #ffd36b;background:#55422d}.danger{background:#7e1717}.good{background:#195a32}
+#mapWrap{position:absolute;left:0;right:0;top:186px;bottom:0;overflow:hidden;background:#080706}#stage{position:absolute;width:1536px;height:1024px;transform-origin:0 0}#base{position:absolute;width:1536px;height:1024px;left:0;top:0}.mark{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:3px solid #111;min-width:24px;height:24px;padding:1px 4px;text-align:center;line-height:17px;font-size:11px;font-weight:bold;color:#fff}.victim{background:#8e2d62}.crime{background:#b41616}.clue{background:#e0b300;color:#111}.setup{width:30px;height:30px;background:transparent;border:3px solid #ffd000}.active{box-shadow:0 0 0 5px #fff}.wait{font-size:28px;font-weight:bold;color:#fff;margin-top:24px}.sub{color:#d6ad63;margin-top:12px}
+</style></head><body><div id="top"><div id="title">Detective</div><div id="status">Connecting...</div></div><div id="controls"></div><div id="mapWrap"><div id="stage"><img id="base" src="/map"><div id="marks"></div></div></div><script>
+var token='',houses=[],crossings=[],state=null,selected=1,mode='search',scale=1;function qs(n){var m=new RegExp('[?&]'+n+'=([^&]*)').exec(location.search);return m?decodeURIComponent(m[1]):''}token=qs('k');
+function xhr(method,url,data,cb){var x=new XMLHttpRequest();x.open(method,url,true);if(method==='POST')x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');x.onreadystatechange=function(){if(x.readyState===4)cb(x.status,x.responseText)};x.send(data||null)}
+function esc(s){return encodeURIComponent(s)}function act(a,args){var d='k='+esc(token)+'&action='+esc(a);for(var k in args)d+='&'+esc(k)+'='+esc(args[k]);xhr('POST','/detective-action',d,function(c,t){if(c===200){try{var r=JSON.parse(t);if(!r.ok)document.getElementById('status').innerHTML=r.error;load()}catch(e){}}})}
+function loadPoints(){xhr('GET','/houses',null,function(c,t){if(c===200)houses=JSON.parse(t)});xhr('GET','/police-points',null,function(c,t){if(c===200)crossings=JSON.parse(t)})}
+function fit(){var w=document.getElementById('mapWrap').clientWidth,h=document.getElementById('mapWrap').clientHeight;scale=Math.min(w/1536,h/1024);var st=document.getElementById('stage');st.style.transform='scale('+scale+')';st.style.left=((w-1536*scale)/2)+'px';st.style.top=((h-1024*scale)/2)+'px'}window.onresize=fit;
+function addMark(p,cls,text,color){var e=document.createElement('div');e.className='mark '+cls;e.style.left=(p.norm_x*1536)+'px';e.style.top=(p.norm_y*1024)+'px';if(color)e.style.background=color;e.innerHTML=text||'';document.getElementById('marks').appendChild(e)}function byNum(a,n){for(var i=0;i<a.length;i++)if(Number(a[i].number)===Number(n))return a[i];return null}
+function render(){if(!state)return;var ph=state.phase||'',active=!!state.active,st=document.getElementById('status'),ct=document.getElementById('controls'),mk=document.getElementById('marks');mk.innerHTML='';ct.innerHTML='';document.getElementById('title').innerHTML='Detective • Night '+(state.night||1);if(String(ph).indexOf('GAME_OVER')===0){st.innerHTML=state.message||'Game over';ct.innerHTML='<div class="wait">پایان بازی</div>';return}if(!active){st.innerHTML=state.introRunning?'شروع فاز بازی...':'منتظر حرکت جک';ct.innerHTML='<div class="wait">'+(state.introRunning?'لطفاً چند لحظه صبر کنید':'منتظر حرکت جک')+'</div><div class="sub">'+(state.introRunning?'Intro در حال اجرا است.':'کنترل بازی روی گوشی جک است.')+'</div>';return}st.innerHTML=state.message||phaseName(ph);
+var i,p,t;if(ph==='HELL_POLICE'){for(i=1;i<=7;i++)ct.innerHTML+='<button class="btn '+(selected===i?'sel':'')+'" onclick="selected='+i+';render()">'+(i<=5?'Police '+i:'Fake '+(i-5))+'</button>';ct.innerHTML+='<button class="btn good" onclick="act(\'finishPoliceSetup\',{})">تحویل به جک</button>';for(i=0;i<state.previousPolicePoints.length;i++){p=byNum(crossings,state.previousPolicePoints[i]);if(p)addMark(p,'setup','')}var yellow=[34,62,72,132,137,160,174];for(i=0;i<yellow.length;i++){p=byNum(crossings,yellow[i]);if(p)addMark(p,'setup','')} }
+if(ph==='HELL_MOVE_WOMEN'){ct.innerHTML='<span class="sub">قربانی را روی نقشه انتخاب کن، سپس خانه مقصد را لمس کن.</span><button class="btn good" onclick="act(\'finishWomenMove\',{})">پایان حرکت • تحویل به جک</button>'}
+if(ph==='HUNT_POLICE_MOVE'){for(i=0;i<state.police.length;i++){t=state.police[i];if(t.real)ct.innerHTML+='<button class="btn '+(selected===t.id?'sel':'')+'" onclick="selected='+t.id+';render()">Police '+t.id+'</button>'}ct.innerHTML+='<button class="btn good" onclick="act(\'finishPoliceMove\',{})">پایان حرکت پلیس‌ها</button>'}
+if(ph==='HUNT_POLICE_ACTION'){for(i=0;i<state.police.length;i++){t=state.police[i];if(t.real)ct.innerHTML+='<button class="btn '+(selected===t.id?'sel':'')+'" onclick="selected='+t.id+';render()">Police '+t.id+'</button>'}ct.innerHTML+='<button class="btn '+(mode==='search'?'sel':'')+'" onclick="mode=\'search\';render()">Search</button><button class="btn '+(mode==='arrest'?'sel':'')+'" onclick="mode=\'arrest\';render()">Arrest</button><button class="btn" onclick="act(\'endSearch\',{id:selected})">پایان جستجوی این پلیس</button><button class="btn good" onclick="act(\'handoffJack\',{})">تحویل به جک</button>'}
+for(i=0;i<state.crime.length;i++){p=byNum(houses,state.crime[i]);if(p)addMark(p,'crime','×')}for(i=0;i<state.clues.length;i++){p=byNum(houses,state.clues[i]);if(p)addMark(p,'clue','?')}for(i=0;i<state.women.length;i++){t=state.women[i];p=byNum(houses,t.point);if(p)addMark(p,'victim '+(selected===t.id&&ph==='HELL_MOVE_WOMEN'?'active':''),'♥')}
+for(i=0;i<state.police.length;i++){t=state.police[i];p=byNum(crossings,t.point);if(p)addMark(p,(selected===t.id?'active':''),t.real?String(t.id):'F',t.color||'#777')}
+}
+function phaseName(p){if(p==='HELL_POLICE')return 'Police patrol placement';if(p==='HELL_MOVE_WOMEN')return 'Move victims';if(p==='HUNT_POLICE_MOVE')return 'Police movement';if(p==='HUNT_POLICE_ACTION')return 'Search / Arrest';return p}
+function nearest(list,x,y){var best=null,bd=1e9;for(var i=0;i<list.length;i++){var dx=list[i].x-x,dy=list[i].y-y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=list[i]}}return best}
+document.getElementById('mapWrap').onclick=function(ev){if(!state||!state.active)return;var st=document.getElementById('stage'),r=st.getBoundingClientRect(),x=(ev.clientX-r.left)/scale,y=(ev.clientY-r.top)/scale,ph=state.phase,p;if(ph==='HELL_POLICE'||ph==='HUNT_POLICE_MOVE'){p=nearest(crossings,x,y);if(!p)return;act(ph==='HELL_POLICE'?'placePolice':'movePolice',{id:selected,point:p.number})}else if(ph==='HELL_MOVE_WOMEN'){for(var i=0;i<state.women.length;i++){var hp=byNum(houses,state.women[i].point);if(hp&&Math.abs(hp.x-x)<24&&Math.abs(hp.y-y)<24){selected=state.women[i].id;render();return}}p=nearest(houses,x,y);if(p)act('moveWoman',{id:selected,point:p.number})}else if(ph==='HUNT_POLICE_ACTION'){p=nearest(houses,x,y);if(p)act(mode,{id:selected,point:p.number})}};
+function load(){xhr('GET','/detective-state?k='+esc(token)+'&_='+(new Date().getTime()),null,function(c,t){if(c===200){try{state=JSON.parse(t);if(!state.ok){document.getElementById('status').innerHTML=state.error;return}render()}catch(e){}}})}loadPoints();fit();load();setInterval(load,700);
+</script></body></html>"""
 
     private fun html(): String = """<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=yes">

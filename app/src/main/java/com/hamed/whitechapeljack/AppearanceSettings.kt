@@ -149,13 +149,13 @@ object AppearanceStore {
             .put("phone", settings.phone.toJson())
             .put("publicDisplay", settings.publicDisplay.toJson())
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putString(KEY, o.toString()).apply()
-        if (DigitalGameStore.exists(ctx)) DigitalGameStore.publish(ctx) else MapStateStore.publish(ctx)
+        if (DigitalGameStore.exists(ctx)) DigitalGameStore.publish(ctx) else if(DigitalGameStore.exists(ctx,true)) DigitalGameStore.load(ctx,true)?.let{DigitalGameStore.publish(ctx,it)} else MapStateStore.publish(ctx)
     }
 
     fun reset(ctx: Context): AppearanceSettings {
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().clear().apply()
         val defaults = AppearanceSettings()
-        if (DigitalGameStore.exists(ctx)) DigitalGameStore.publish(ctx) else MapStateStore.publish(ctx)
+        if (DigitalGameStore.exists(ctx)) DigitalGameStore.publish(ctx) else if(DigitalGameStore.exists(ctx,true)) DigitalGameStore.load(ctx,true)?.let{DigitalGameStore.publish(ctx,it)} else MapStateStore.publish(ctx)
         return defaults
     }
 

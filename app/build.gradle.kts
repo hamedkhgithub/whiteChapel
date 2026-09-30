@@ -10,8 +10,8 @@ android {
         applicationId = "com.hamed.whitechapeljack.legacytv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
-        versionName = "3.22-home-public-qr"
+        versionCode = 23
+        versionName = "3.23-two-phone-mode"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

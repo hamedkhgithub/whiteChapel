@@ -63,3 +63,6 @@ Not yet implemented: board adjacency/map validation and full Hell-phase setup au
 - Popup when the 15-space movement allowance is exhausted before reaching the hideout: detectives win.
 - Popup when جک reaches and declares the hideout on Night 4: جک wins.
 - Visible English `Jack` labels were changed to `جک` for cleaner RTL display.
+
+## V3.23 Two Phone Mode
+A separate two-phone digital mode is available from Home. The Android device stays with Jack; a tokenized Detective URL/QR opens the interactive Detective controller on a second phone. The Public Display URL remains unchanged.
