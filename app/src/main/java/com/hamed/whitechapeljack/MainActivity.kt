@@ -6,6 +6,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
+
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.os.Bundle
@@ -1068,6 +1072,9 @@ private fun HomeGameRow(
     onNew: () -> Unit,
     onContinue: () -> Unit
 ) {
+    CompositionLocalProvider(
+        LocalLayoutDirection provides LayoutDirection.Rtl
+    ) {
     Row(Modifier.fillMaxWidth().height(72.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Button(
             onClick = onNew,
@@ -1096,6 +1103,7 @@ private fun HomeGameRow(
             Text("ادامه بازی", fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
         }
     }
+}
 }
 
 @Composable
