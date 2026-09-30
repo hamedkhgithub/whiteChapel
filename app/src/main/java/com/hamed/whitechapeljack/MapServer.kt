@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStreamReader
 import java.net.Inet4Address
 import java.net.NetworkInterface
+import java.net.URLDecoder
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.Collections
@@ -95,10 +96,28 @@ class TvMapServer(private val context: Context, private val port: Int = 8766) {
                 "/alley-token" -> sendDrawable(s, R.drawable.alley_track_token_legacy, "image/png")
                 "/qr" -> sendQr(s)
                 "/intro-hell" -> sendAsset(s, "intro-hell.html", "text/html; charset=utf-8")
-                "/intro-hunting" -> sendAsset(s, "intro-hunting.html", "text/html; charset=utf-8")
+                "/intro-hunting" -> sendHuntingIntro(s, path)
                 else -> sendText(s, "text/plain; charset=utf-8", "Not found", status = "404 Not Found")
             }
         }
+    }
+
+    private fun sendHuntingIntro(socket: Socket, requestPath: String) {
+        // Inject the public crime-scene house numbers into the HTML on the server side.
+        // This avoids relying on old webOS iframe/query-string JavaScript behavior.
+        val encoded = requestPath.substringAfter("houses=", "").substringBefore("&")
+        val decoded = runCatching { URLDecoder.decode(encoded, "UTF-8") }.getOrDefault(encoded)
+        val houses = decoded.split(',')
+            .mapNotNull { it.trim().toIntOrNull() }
+            .filter { it > 0 }
+            .distinct()
+            .sorted()
+        val source = context.assets.open("intro-hunting.html").bufferedReader().use { it.readText() }
+        val html = source.replace(
+            "var currentHouses = [];",
+            "var currentHouses = [${houses.joinToString(",")}];"
+        )
+        sendText(socket, "text/html; charset=utf-8", html, noCache = true)
     }
 
     private fun sendQr(socket: Socket) {

@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.WindowManager
@@ -59,6 +60,8 @@ import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import kotlin.math.sqrt
 import kotlin.math.roundToInt
 
@@ -378,6 +381,47 @@ private fun Splash(onDone: () -> Unit) {
 }
 
 @Composable
+private fun ServerQrCode(
+    url: String,
+    modifier: Modifier = Modifier
+) {
+    val qrImage = remember(url) {
+        runCatching {
+            val size = 320
+            val matrix = QRCodeWriter().encode(url, BarcodeFormat.QR_CODE, size, size)
+            Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).apply {
+                for (y in 0 until size) {
+                    for (x in 0 until size) {
+                        setPixel(
+                            x,
+                            y,
+                            if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+                        )
+                    }
+                }
+            }.asImageBitmap()
+        }.getOrNull()
+    }
+
+    qrImage?.let {
+        Box(
+            modifier = modifier
+                .size(124.dp)
+                .background(Color.White)
+                .padding(6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                bitmap = it,
+                contentDescription = "Public display QR code",
+                modifier = Modifier.fillMaxSize(),
+                filterQuality = FilterQuality.None
+            )
+        }
+    }
+}
+
+@Composable
 private fun Home(
     hasGame: Boolean,
     hasMapGame: Boolean,
@@ -397,6 +441,10 @@ private fun Home(
         Column(Modifier.fillMaxSize().padding(horizontal = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.weight(.20f))
 if (TvServerInfo.url.isNotBlank()) {
+    ServerQrCode(
+        url = TvServerInfo.url,
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
     Text(
         "نمایش عمومی: ${TvServerInfo.url}",
         color = Gold,
