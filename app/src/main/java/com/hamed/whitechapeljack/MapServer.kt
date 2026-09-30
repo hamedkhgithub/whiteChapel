@@ -196,14 +196,21 @@ var currentAppearance=defaultAppearance;
 var lastIntroId=0;
 var introHideTimer=null;
 function handleIntro(s){
-  var id=Number(s.introId||0),type=String(s.introType||''),overlay=document.getElementById('introOverlay'),frame=document.getElementById('introFrame'),url;
+  var id=Number(s.introId||0),type=String(s.introType||''),overlay=document.getElementById('introOverlay'),frame=document.getElementById('introFrame'),url,houses,i,houseParts=[];
   if(!id||!type||id===lastIntroId)return;
   lastIntroId=id;
-  url=(type==='hunting'?'/intro-hunting':'/intro-hell')+'?night='+Number(s.night||1)+'&id='+id;
+  if(type==='hunting'){
+    houses=s.introHouses||[];
+    for(i=0;i<houses.length;i++)houseParts.push(Number(houses[i]));
+    houseParts.sort(function(a,b){return a-b;});
+    url='/intro-hunting?houses='+encodeURIComponent(houseParts.join(','))+'&id='+id;
+  }else{
+    url='/intro-hell?night='+Number(s.night||1)+'&id='+id;
+  }
   frame.src=url;
   overlay.style.display='block';
   if(introHideTimer)clearTimeout(introHideTimer);
-  introHideTimer=setTimeout(function(){overlay.style.display='none';frame.src='about:blank';},4100);
+  introHideTimer=setTimeout(function(){overlay.style.display='none';frame.src='about:blank';},type==='hunting'?4900:4100);
 }
 
 function resizeViewport(){

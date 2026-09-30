@@ -65,18 +65,29 @@ data class DToken(val id:Int,val point:Int,val color:String,val real:Boolean,val
 private enum class VictimPlacementType { REAL, FAKE }
 private enum class MapMarkerShape { CIRCLE, HEART }
 
-private fun startDigitalIntro(o: JSONObject, type: String) {
+private fun startDigitalIntro(o: JSONObject, type: String, houses: List<Int> = emptyList()) {
     o.put("introType", type)
     o.put("introId", System.currentTimeMillis())
+    if (type == "hunting") {
+        val publicHouses = JSONArray()
+        houses.distinct().sorted().forEach { publicHouses.put(it) }
+        o.put("introHouses", publicHouses)
+    } else {
+        o.remove("introHouses")
+    }
 }
 
 @Composable
-private fun DigitalIntroPage(type: String, night: Int) {
+private fun DigitalIntroPage(type: String, night: Int, houses: List<Int> = emptyList()) {
     val context = LocalContext.current
     val assetName = if (type == "hunting") "intro-hunting.html" else "intro-hell.html"
-    val html = remember(type, night) {
-        context.assets.open(assetName).bufferedReader().use { it.readText() }
-            .replace("var currentNight = 1;", "var currentNight = $night;")
+    val html = remember(type, night, houses) {
+        val source = context.assets.open(assetName).bufferedReader().use { it.readText() }
+        if (type == "hunting") {
+            source.replace("var currentHouses = [];", "var currentHouses = [${houses.distinct().sorted().joinToString(",")}];")
+        } else {
+            source.replace("var currentNight = 1;", "var currentNight = $night;")
+        }
     }
     AndroidView(
         factory = { ctx ->
@@ -112,8 +123,11 @@ object DigitalGameStore {
         val publicAppearance=AppearanceStore.load(c).publicDisplay
         val phase=o.optString("phase")
         val victimsRevealed=phase !in setOf("HELL_WOMEN","HAND_POLICE","HELL_POLICE","HAND_JACK")
-        val wa=JSONArray(); val women=o.optJSONArray("women")?:JSONArray();for(i in 0 until women.length()){val x=women.getJSONObject(i);houses[x.getInt("point")]?.let{p->wa.put(JSONObject().put("x",p.normX).put("y",p.normY).put("revealed",victimsRevealed).put("real",x.optBoolean("real",true)))}}
-        val pa=JSONArray();val police=o.optJSONArray("police")?:JSONArray();for(i in 0 until police.length()){val x=police.getJSONObject(i);pp[x.getInt("point")]?.let{p->val item=JSONObject().put("x",p.normX).put("y",p.normY).put("revealed",x.optBoolean("revealed",false)).put("real",x.optBoolean("real",true)).put("id",x.optInt("id",1));pa.put(item)}}
+        // Hell setup selections are private drafts. Do not publish individual clicks to the TV:
+        // victims become public together only after Jack presses handoff to Detective (HAND_POLICE),
+        // and patrols become public together only after Detective presses handoff to Jack (HAND_JACK).
+        val wa=JSONArray(); val women=o.optJSONArray("women")?:JSONArray();if(phase!="HELL_WOMEN")for(i in 0 until women.length()){val x=women.getJSONObject(i);houses[x.getInt("point")]?.let{p->wa.put(JSONObject().put("x",p.normX).put("y",p.normY).put("revealed",victimsRevealed).put("real",x.optBoolean("real",true)))}}
+        val pa=JSONArray();val police=o.optJSONArray("police")?:JSONArray();if(phase!="HELL_POLICE")for(i in 0 until police.length()){val x=police.getJSONObject(i);pp[x.getInt("point")]?.let{p->val item=JSONObject().put("x",p.normX).put("y",p.normY).put("revealed",x.optBoolean("revealed",false)).put("real",x.optBoolean("real",true)).put("id",x.optInt("id",1));pa.put(item)}}
         val ca=JSONArray();val crimes=o.optJSONArray("crime")?:JSONArray();val currentCrimes=currentCrimePoints(o);for(i in 0 until crimes.length()){val crimeId=crimes.getInt(i);houses[crimeId]?.let{p->ca.put(JSONObject().put("x",p.normX).put("y",p.normY).put("current",crimeId in currentCrimes))}}
         val cla=JSONArray();val clues=o.optJSONArray("clues")?:JSONArray();for(i in 0 until clues.length()){houses[clues.getInt(i)]?.let{p->cla.put(JSONObject().put("x",p.normX).put("y",p.normY))}}
         val moveSpecials=JSONArray();var usedTrack=0;val jackMoves=o.optJSONArray("jackMoves")?:JSONArray()
@@ -130,7 +144,8 @@ object DigitalGameStore {
         pub.put("women",wa).put("digitalPolice",pa).put("crime",ca).put("clues",cla).put("setupCrossings",setupCrossings)
             .put("moveTrack",o.optInt("moveTrack",0)).put("moveSpecials",moveSpecials)
             .put("appearance",publicAppearance.toJson()).put("publicMessage",o.optString("publicMessage","")).put("publicPhase",publicPhaseName(o.optString("phase")))
-            .put("introType",o.optString("introType","")).put("introId",o.optLong("introId",0));TvMapHub.setState(pub)
+            .put("introType",o.optString("introType","")).put("introId",o.optLong("introId",0))
+            .put("introHouses",o.optJSONArray("introHouses")?:JSONArray());TvMapHub.setState(pub)
     }
 }
 
@@ -207,18 +222,20 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
     val phase=o.optString("phase");val night=o.optInt("night",1);val time=o.optInt("time",1);val women=o.optJSONArray("women")!!.tokens();val police=o.optJSONArray("police")!!.tokens()
     val introType=o.optString("introType","")
     val introId=o.optLong("introId",0L)
+    val introHouses=(o.optJSONArray("introHouses")?:JSONArray()).let { a -> List(a.length()){ i -> a.optInt(i) }.filter{it>0}.sorted() }
     if(introType=="hell" || introType=="hunting"){
         LaunchedEffect(introId){
-            delay(3900)
+            delay(if(introType=="hunting")4700 else 3900)
             val latest=DigitalGameStore.load(ctx)
             if(latest!=null && latest.optLong("introId",0L)==introId){
                 latest.remove("introType")
                 latest.remove("introId")
+                latest.remove("introHouses")
                 DigitalGameStore.save(ctx,latest)
                 rev++
             }
         }
-        DigitalIntroPage(introType,night)
+        DigitalIntroPage(introType,night,introHouses)
         return
     }
     val trackVisual=moveTrackVisual(o)
@@ -426,7 +443,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                             val revealed=police.filter{it.real}.map{it.copy(revealed=true)}
                             o.put("police",revealed.json()).put("policeIndex",0)
                             setPublicMessage(o,"دو قتل شب سوم رخ داد؛ هر دو محل قتل ثبت شدند و تعقیب با نوبت پلیس آغاز می‌شود.")
-                            startDigitalIntro(o,"hunting")
+                            startDigitalIntro(o,"hunting",listOf(firstDoubleKill,victim.point))
                             setPhase("HUNT_POLICE_HANDOFF")
                         }
                     }else{
@@ -436,7 +453,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                         val revealed=police.filter{it.real}.map{it.copy(revealed=true)}
                         o.put("police",revealed.json()).put("policeIndex",0)
                         setPublicMessage(o,"قتل در خانه ${victim.point} رخ داد؛ محل قتل ثبت شد و مرحله تعقیب آغاز شد.")
-                        startDigitalIntro(o,"hunting")
+                        startDigitalIntro(o,"hunting",listOf(victim.point))
                         setPhase("HUNT_JACK_UNLOCK")
                     }
                 },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=police.associate{it.point to policeColor(it,it.revealed)},crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART,moveTrackVisual=trackVisual)

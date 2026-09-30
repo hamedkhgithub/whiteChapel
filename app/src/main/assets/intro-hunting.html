@@ -7,24 +7,31 @@
 <style>
 html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:Arial,sans-serif}
 #huntingIntro{position:fixed;left:0;top:0;width:100%;height:100%;background:#000;display:block;opacity:1;z-index:99999}
-#nightTitle{position:absolute;left:0;top:36%;width:100%;text-align:center;color:#fff;font-size:64px;font-weight:bold;opacity:0;transform:scale(.94);-webkit-transform:scale(.94);transition:opacity 700ms ease,transform 900ms ease;-webkit-transition:opacity 700ms ease,-webkit-transform 900ms ease}
-#huntingText{position:absolute;left:0;top:53%;width:100%;text-align:center;font-size:38px;font-weight:normal;color:#fff;opacity:0;transform:translateY(10px);-webkit-transform:translateY(10px);transition:opacity 700ms ease,transform 700ms ease;-webkit-transition:opacity 700ms ease,-webkit-transform 700ms ease}
+#murderMessage{position:absolute;left:6%;top:38%;width:88%;text-align:center;color:#fff;font-size:42px;font-weight:normal;line-height:1.35;opacity:0;transform:scale(.96);-webkit-transform:scale(.96);transition:opacity 700ms ease,transform 900ms ease;-webkit-transition:opacity 700ms ease,-webkit-transform 900ms ease}
+.houseNumber{color:#D32F2F;font-weight:bold}
+#huntingText{position:absolute;left:0;top:56%;width:100%;text-align:center;color:#fff;font-size:40px;font-weight:normal;opacity:0;transform:translateY(10px);-webkit-transform:translateY(10px);transition:opacity 700ms ease,transform 700ms ease;-webkit-transition:opacity 700ms ease,-webkit-transform 700ms ease}
 #huntingWord{color:#D32F2F;font-weight:bold}
-#redLine{position:absolute;left:50%;top:61%;width:0;height:2px;background:#D32F2F;transform:translateX(-50%);-webkit-transform:translateX(-50%);transition:width 900ms ease;-webkit-transition:width 900ms ease;opacity:0}
-#nightTitle.show{opacity:1;transform:scale(1);-webkit-transform:scale(1)}
+#redLine{position:absolute;left:50%;top:64%;width:0;height:2px;background:#D32F2F;opacity:0;transform:translateX(-50%);-webkit-transform:translateX(-50%);transition:width 900ms ease,opacity 500ms ease;-webkit-transition:width 900ms ease,opacity 500ms ease}
+#murderMessage.show{opacity:1;transform:scale(1);-webkit-transform:scale(1)}
 #huntingText.show{opacity:1;transform:translateY(0);-webkit-transform:translateY(0)}
 #redLine.show{width:300px;opacity:1}
 #huntingIntro.hide{opacity:0;transition:opacity 800ms ease;-webkit-transition:opacity 800ms ease}
 </style>
 </head>
 <body>
-<div id="huntingIntro"><div id="nightTitle">Night 1</div><div id="huntingText"><span id="huntingWord">Hunting</span> is started</div><div id="redLine"></div></div>
+<div id="huntingIntro">
+  <div id="murderMessage"></div>
+  <div id="huntingText"><span id="huntingWord">Hunting</span> is started</div>
+  <div id="redLine"></div>
+</div>
 <script>
-var currentNight = 1;
-function queryNight(){var m=String(window.location.search||'').match(/[?&]night=([0-9]+)/);return m?parseInt(m[1],10):currentNight;}
-function setNightNumber(n){n=parseInt(n,10);if(!n||n<1)n=1;currentNight=n;document.getElementById('nightTitle').innerHTML='Night '+currentNight;}
-function playHuntingIntro(n){var intro=document.getElementById('huntingIntro'),night=document.getElementById('nightTitle'),hunting=document.getElementById('huntingText'),line=document.getElementById('redLine');setNightNumber(n);intro.style.display='block';intro.className='';night.className='';hunting.className='';line.className='';setTimeout(function(){night.className='show';},200);setTimeout(function(){hunting.className='show';},1100);setTimeout(function(){line.className='show';},1400);setTimeout(function(){intro.className='hide';},3000);setTimeout(function(){intro.style.display='none';},3800);}
-window.onload=function(){playHuntingIntro(queryNight());};
+/* ES5 only for older webOS browsers. */
+var currentHouses = [];
+function normalizeHouses(houses){var result=[],i,n;if(!houses)return result;for(i=0;i<houses.length;i++){n=parseInt(houses[i],10);if(!isNaN(n)&&n>0)result.push(n);}result.sort(function(a,b){return a-b;});return result;}
+function queryHouses(){var m=String(window.location.search||'').match(/[?&]houses=([^&]*)/),raw;if(!m)return currentHouses;try{raw=decodeURIComponent(m[1]);}catch(e){raw=m[1];}return raw?raw.split(','):currentHouses;}
+function buildMurderMessage(houses){var sorted=normalizeHouses(houses);if(sorted.length>=2)return 'Victims were murdered at House <span class="houseNumber">'+sorted[0]+'</span> and <span class="houseNumber">'+sorted[1]+'</span>.';if(sorted.length===1)return 'A victim was murdered at House <span class="houseNumber">'+sorted[0]+'</span>.';return 'A victim was murdered.';}
+function playHuntingIntro(houses){var intro=document.getElementById('huntingIntro'),murder=document.getElementById('murderMessage'),hunting=document.getElementById('huntingText'),line=document.getElementById('redLine');currentHouses=normalizeHouses(houses);murder.innerHTML=buildMurderMessage(currentHouses);intro.style.display='block';intro.className='';murder.className='';hunting.className='';line.className='';setTimeout(function(){murder.className='show';},250);setTimeout(function(){hunting.className='show';},1700);setTimeout(function(){line.className='show';},2000);setTimeout(function(){intro.className='hide';},3800);setTimeout(function(){intro.style.display='none';},4600);}
+window.onload=function(){playHuntingIntro(queryHouses());};
 </script>
 </body>
 </html>
