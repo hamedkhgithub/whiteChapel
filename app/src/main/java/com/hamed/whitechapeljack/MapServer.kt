@@ -134,9 +134,9 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 .number-badge{position:absolute;transform:translate(-50%,-50%);width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid rgba(0,0,0,.45);color:#000;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;line-height:1;box-sizing:border-box}.number-badge.red-house{background:rgba(211,47,47,.94);border-color:rgba(122,12,12,.85);color:#fff}
 .woman{width:42px;height:42px;border:0;background:transparent}
 .patrol{width:40px;height:40px;border:0;background:transparent}
-.crime{width:35px;height:35px;border:4px solid #8b8b8b;border-radius:0;background:transparent}.crime.current{border-color:#d01818}
-.clue{width:32px;height:32px;border:3px solid #f0c52b;border-radius:0;background:rgba(240,197,43,.32);transform:translate(-50%,-50%) rotate(45deg)}
-#legend{position:fixed;right:10px;bottom:62px;background:#111d;padding:7px 10px;border:1px solid #d6ad63;border-radius:8px;font-size:12px;z-index:50;direction:rtl;unicode-bidi:plaintext}
+.crime{width:35px;height:35px;border:0;background:transparent}
+.clue{width:32px;height:32px;border:0;background:transparent}
+.setup-crossing{position:absolute;transform:translate(-50%,-50%);border:3px solid #ffd600;background:transparent;box-sizing:border-box}
 
 /* Move Track markers are rendered directly on the printed board track. */
 .track-jack-map{position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background-image:url('/jack-token');background-size:cover;background-position:center;border:2px solid #2b2b2b;box-shadow:0 1px 4px #000b;z-index:15;box-sizing:border-box}
@@ -159,7 +159,9 @@ var defaultAppearance={
   policeColors:['#1976D2','#F9A825','#6D4C41','#D32F2F','#2E7D32','#111111'],
   policeSize:1,policeFillAlpha:.42,
   victimRealColor:'#D32F2F',victimFakeColor:'#FFFFFF',victimSize:1,victimFillAlpha:.42,
-  clueColor:'#F0C52B',clueSize:1,clueFillAlpha:.32,houseNumberScale:1
+  clueColor:'#F0C52B',clueSize:1,clueFillAlpha:.32,
+  crimeSceneColor:'#D01818',crimeSceneSize:1,yellowCrossingSize:1,houseNumberScale:1,
+  overlayOffsetX:0,overlayOffsetY:0,overlayScale:1,publicUiTextScale:1
 };
 var currentAppearance=defaultAppearance;
 
@@ -230,8 +232,28 @@ function appearanceOf(s){
   if(s&&s.appearance){for(k in s.appearance){if(s.appearance.hasOwnProperty(k))a[k]=s.appearance[k];}}
   return a;
 }
+function calibratedX(x){
+  var scale=Number(currentAppearance.overlayScale||1);
+  var offset=Number(currentAppearance.overlayOffsetX||0);
+  return Number(x)*1536*scale+offset;
+}
+function calibratedY(y){
+  var scale=Number(currentAppearance.overlayScale||1);
+  var offset=Number(currentAppearance.overlayOffsetY||0);
+  return Number(y)*1024*scale+offset;
+}
+function placeCalibrated(e,x,y){
+  e.style.left=calibratedX(x)+'px';
+  e.style.top=calibratedY(y)+'px';
+}
 function applyAppearance(a){
+  var uiScale,top,event;
   currentAppearance=a||defaultAppearance;
+  uiScale=Math.max(.7,Math.min(2,Number(currentAppearance.publicUiTextScale||1)));
+  top=document.getElementById('top');
+  event=document.getElementById('event');
+  if(top)top.style.fontSize=(16*uiScale)+'px';
+  if(event)event.style.fontSize=(13*uiScale)+'px';
   renderNumbers();
 }
 function svgEl(name){return document.createElementNS('http://www.w3.org/2000/svg',name);}
@@ -256,12 +278,21 @@ function addPoliceSvg(e,color,fillAlpha){
   var badge=svgEl('polygon');badge.setAttribute('points','256.117,194.281 279.646,217.811 312.921,217.811 312.921,251.086 336.449,274.614 312.921,298.143 312.921,331.418 279.646,331.418 256.117,354.947 232.588,331.418 199.313,331.418 199.313,298.143 175.784,274.614 199.313,251.086 199.313,217.811 232.588,217.811');badge.setAttribute('fill','none');badge.setAttribute('stroke',color);badge.setAttribute('stroke-width','14');badge.setAttribute('stroke-linejoin','round');svg.appendChild(badge);
   e.appendChild(svg);
 }
+function addSearchSvg(e,color,fillAlpha){
+  var svg=svgEl('svg');svg.setAttribute('viewBox','0 0 512.001 512.001');svg.setAttribute('width','100%');svg.setAttribute('height','100%');
+  addSvgPath(svg,'M283.097,0C156.88,0,54.194,102.686,54.194,228.904c0,37.27,8.959,72.485,24.827,103.613l-58.247,58.247 c-27.699,27.697-27.699,72.766,0,100.463C34.622,505.077,52.814,512,71.005,512c18.192,0,36.385-6.924,50.232-20.773 l58.246-58.247c31.131,15.869,66.346,24.827,103.614,24.827c126.217,0,228.903-102.686,228.903-228.903S409.315,0,283.097,0z M87.751,457.739c-9.235,9.235-24.256,9.232-33.489,0c-9.234-9.233-9.234-24.256,0-33.488l51.18-51.178 c9.983,12.279,21.209,23.504,33.488,33.488L87.751,457.739z M283.097,410.448c-100.103,0-181.544-81.441-181.544-181.544 S182.994,47.36,283.097,47.36S464.641,128.8,464.641,228.904S383.201,410.448,283.097,410.448z',color,fillAlpha,color,10);
+  e.appendChild(svg);
+}
+function addTargetSvg(e,color){
+  var svg=svgEl('svg');svg.setAttribute('viewBox','0 0 512 512');svg.setAttribute('width','100%');svg.setAttribute('height','100%');
+  addSvgPath(svg,'M256,0C114.84,0,0,114.842,0,256s114.84,256,256,256s256-114.842,256-256S397.16,0,256,0z M280.774,460.96v-56.315 h-49.548v56.315C137.152,449.658,62.342,374.848,51.04,280.774h56.315v-49.548H51.04C62.342,137.152,137.152,62.342,231.226,51.04 v56.315h49.548V51.04c94.073,11.302,168.884,86.112,180.186,180.186h-56.315v49.548h56.315 C449.658,374.848,374.847,449.658,280.774,460.96z',color,1,null,0);
+  e.appendChild(svg);
+}
 function mk(cls,x,y,color,fillAlpha){
   var e=document.createElement('div');
   var size;
   e.className='m '+cls;
-  e.style.left=(Number(x)*100)+'%';
-  e.style.top=(Number(y)*100)+'%';
+  placeCalibrated(e,x,y);
   if(cls==='woman'){
     size=42*(currentAppearance.victimSize||1);
     e.style.width=size+'px';e.style.height=size+'px';
@@ -273,8 +304,14 @@ function mk(cls,x,y,color,fillAlpha){
   }else if(cls==='clue'){
     size=32*(currentAppearance.clueSize||1);
     e.style.width=size+'px';e.style.height=size+'px';
-    e.style.borderColor=color;
-    e.style.backgroundColor=rgba(color,fillAlpha==null?0:fillAlpha);
+    addSearchSvg(e,color,fillAlpha);
+  }else if(cls==='crime'){
+    size=35*(currentAppearance.crimeSceneSize||1);
+    e.style.width=size+'px';e.style.height=size+'px';
+    addTargetSvg(e,color);
+  }else if(cls==='setup-crossing'){
+    size=38*(currentAppearance.yellowCrossingSize||1);
+    e.style.width=size+'px';e.style.height=size+'px';
   }
   marks.appendChild(e);
 }
@@ -289,8 +326,7 @@ function renderNumbers(){
     p=housePoints[i];
     e=document.createElement('div');
     e.className='number-badge'+(containsNumber(redHouseIds,p.number)?' red-house':'');
-    e.style.left=(Number(p.norm_x||0)*100)+'%';
-    e.style.top=(Number(p.norm_y||0)*100)+'%';
+    placeCalibrated(e,Number(p.norm_x||0),Number(p.norm_y||0));
     e.style.width=diam+'px';e.style.height=diam+'px';e.style.fontSize=font+'px';
     e.appendChild(document.createTextNode(String(p.number)));
     numbers.appendChild(e);
@@ -324,8 +360,7 @@ function trackPointById(id){
 function addTrackDiv(cls,x,y,w,h){
   var e=document.createElement('div');
   e.className=cls;
-  e.style.left=(Number(x)*100)+'%';
-  e.style.top=(Number(y)*100)+'%';
+  placeCalibrated(e,x,y);
   if(w!=null)e.style.width=w+'px';
   if(h!=null)e.style.height=h+'px';
   marks.appendChild(e);
@@ -363,10 +398,12 @@ function renderBoardMoveTrack(s){
   if(currentPoint)addTrackDiv('track-jack-map',Number(currentPoint.norm_x),Number(currentPoint.norm_y),36,36);
 }
 function renderState(s){
-  var a,women,police,crimes,clues,i,v,p,c,colors,timeLabel;
+  var a,women,police,crimes,clues,setupCrossings,i,v,p,c,colors,timeLabel;
   a=appearanceOf(s);
   applyAppearance(a);
   marks.innerHTML='';
+  setupCrossings=s.setupCrossings||[];
+  for(i=0;i<setupCrossings.length;i++){v=setupCrossings[i];mk('setup-crossing',v.x,v.y,'#FFD600',1);}
   women=s.women||[];
   for(i=0;i<women.length;i++){
     v=women[i];
@@ -380,7 +417,7 @@ function renderState(s){
     mk('patrol',p.x,p.y,c,a.policeFillAlpha);
   }
   crimes=s.crime||[];
-  for(i=0;i<crimes.length;i++){v=crimes[i];mk(v.current?'crime current':'crime',v.x,v.y);}
+  for(i=0;i<crimes.length;i++){v=crimes[i];mk('crime',v.x,v.y,v.current?a.crimeSceneColor:'#8B8B8B',1);}
   clues=s.clues||[];
   for(i=0;i<clues.length;i++){v=clues[i];mk('clue',v.x,v.y,a.clueColor,a.clueFillAlpha);}
   renderBoardMoveTrack(s);

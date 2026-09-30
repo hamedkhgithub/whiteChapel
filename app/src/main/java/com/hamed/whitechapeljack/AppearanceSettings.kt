@@ -34,6 +34,7 @@ private val DEFAULT_POLICE_COLORS = listOf(
 private const val DEFAULT_REAL_VICTIM = "#D32F2F"
 private const val DEFAULT_FAKE_VICTIM = "#FFFFFF"
 private const val DEFAULT_CLUE = "#F0C52B"
+private const val DEFAULT_CRIME_SCENE = "#D01818"
 
 data class DisplayAppearance(
     val policeColors: List<String> = DEFAULT_POLICE_COLORS,
@@ -46,7 +47,14 @@ data class DisplayAppearance(
     val clueColor: String = DEFAULT_CLUE,
     val clueSize: Float = 1f,
     val clueFillAlpha: Float = 0.32f,
-    val houseNumberScale: Float = 1f
+    val crimeSceneColor: String = DEFAULT_CRIME_SCENE,
+    val crimeSceneSize: Float = 1f,
+    val yellowCrossingSize: Float = 1f,
+    val houseNumberScale: Float = 1f,
+    val overlayOffsetX: Float = 0f,
+    val overlayOffsetY: Float = 0f,
+    val overlayScale: Float = 1f,
+    val publicUiTextScale: Float = 1f
 ) {
     fun policeColor(tokenId: Int, real: Boolean, identityVisible: Boolean): String {
         if (!identityVisible || !real) return policeColors.getOrElse(5) { "#111111" }
@@ -66,7 +74,14 @@ data class DisplayAppearance(
         .put("clueColor", clueColor)
         .put("clueSize", clueSize)
         .put("clueFillAlpha", clueFillAlpha)
+        .put("crimeSceneColor", crimeSceneColor)
+        .put("crimeSceneSize", crimeSceneSize)
+        .put("yellowCrossingSize", yellowCrossingSize)
         .put("houseNumberScale", houseNumberScale)
+        .put("overlayOffsetX", overlayOffsetX)
+        .put("overlayOffsetY", overlayOffsetY)
+        .put("overlayScale", overlayScale)
+        .put("publicUiTextScale", publicUiTextScale)
 
     companion object {
         fun fromJson(o: JSONObject?): DisplayAppearance {
@@ -85,8 +100,15 @@ data class DisplayAppearance(
                 clueColor = o.optString("clueColor", DEFAULT_CLUE),
                 clueSize = o.optDouble("clueSize", 1.0).toFloat().coerceIn(.5f, 2f),
                 clueFillAlpha = o.optDouble("clueFillAlpha", o.optDouble("clueAlpha", .32)).toFloat().coerceIn(.05f, 1f),
+                crimeSceneColor = o.optString("crimeSceneColor", DEFAULT_CRIME_SCENE),
+                crimeSceneSize = o.optDouble("crimeSceneSize", 1.0).toFloat().coerceIn(.5f, 2f),
+                yellowCrossingSize = o.optDouble("yellowCrossingSize", 1.0).toFloat().coerceIn(.5f, 2f),
                 // V3.1 used textScale for UI text. Migrate that value to house numbers instead.
-                houseNumberScale = o.optDouble("houseNumberScale", o.optDouble("textScale", 1.0)).toFloat().coerceIn(.1f, 1.8f)
+                houseNumberScale = o.optDouble("houseNumberScale", o.optDouble("textScale", 1.0)).toFloat().coerceIn(.1f, 1.8f),
+                overlayOffsetX = o.optDouble("overlayOffsetX", 0.0).toFloat().coerceIn(-400f, 400f),
+                overlayOffsetY = o.optDouble("overlayOffsetY", 0.0).toFloat().coerceIn(-400f, 400f),
+                overlayScale = o.optDouble("overlayScale", 1.0).toFloat().coerceIn(.75f, 1.25f),
+                publicUiTextScale = o.optDouble("publicUiTextScale", 1.0).toFloat().coerceIn(.7f, 2f)
             )
         }
     }
@@ -98,6 +120,8 @@ data class AppearanceSettings(
         policeSize = 1.15f,
         victimSize = 1.15f,
         clueSize = 1.15f,
+        crimeSceneSize = 1.15f,
+        yellowCrossingSize = 1.15f,
         houseNumberScale = 1.05f
     )
 )
@@ -208,9 +232,21 @@ fun AppearanceSettingsPage(
             }
 
             SettingsCard("سرنخ") {
+                Text("آیکون ذره‌بین search.svg", color = Color.LightGray, fontSize = 11.sp)
                 ColorSettingRow("رنگ سرنخ", current.clueColor) { updateDisplay(current.copy(clueColor = it)) }
                 ScaleRow("اندازه سرنخ", current.clueSize, .5f, 2f) { updateDisplay(current.copy(clueSize = it)) }
                 ScaleRow("شفافیت داخل", current.clueFillAlpha, .05f, 1f) { updateDisplay(current.copy(clueFillAlpha = it)) }
+            }
+
+            SettingsCard("محل قتل") {
+                Text("آیکون هدف target.svg؛ محل قتل شب جاری با رنگ انتخابی و محل‌های قتل قبلی خاکستری نمایش داده می‌شوند.", color = Color.LightGray, fontSize = 11.sp)
+                ColorSettingRow("رنگ محل قتل", current.crimeSceneColor) { updateDisplay(current.copy(crimeSceneColor = it)) }
+                ScaleRow("اندازه محل قتل", current.crimeSceneSize, .5f, 2f) { updateDisplay(current.copy(crimeSceneSize = it)) }
+            }
+
+            SettingsCard("تقاطع‌های زرد") {
+                Text("در فاز جانمایی پلیس، دور هفت تقاطع زرد یک مربع راهنما نمایش داده می‌شود.", color = Color.LightGray, fontSize = 11.sp)
+                ScaleRow("اندازه مربع زرد", current.yellowCrossingSize, .5f, 2f) { updateDisplay(current.copy(yellowCrossingSize = it)) }
             }
 
             SettingsCard("شماره خانه‌ها") {
@@ -221,6 +257,39 @@ fun AppearanceSettingsPage(
                 )
                 ScaleRow("اندازه شماره‌ها", current.houseNumberScale, .1f, 1.8f) {
                     updateDisplay(current.copy(houseNumberScale = it))
+                }
+            }
+
+            if (publicTab) {
+                SettingsCard("کالیبراسیون نمایش عمومی") {
+                    Text(
+                        "این تنظیمات فقط موقعیت لایه‌های روی نقشه TV را تغییر می‌دهند و خود تصویر نقشه جابه‌جا نمی‌شود.",
+                        color = Color.LightGray,
+                        fontSize = 11.sp
+                    )
+                    OffsetRow("X Offset", current.overlayOffsetX, -400f, 400f) {
+                        updateDisplay(current.copy(overlayOffsetX = it))
+                    }
+                    OffsetRow("Y Offset", current.overlayOffsetY, -400f, 400f) {
+                        updateDisplay(current.copy(overlayOffsetY = it))
+                    }
+                    ScaleRow("Scale نقاط", current.overlayScale, .75f, 1.25f) {
+                        updateDisplay(current.copy(overlayScale = it))
+                    }
+                    ScaleRow("اندازه نوشته‌های UI", current.publicUiTextScale, .7f, 2f) {
+                        updateDisplay(current.copy(publicUiTextScale = it))
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            updateDisplay(current.copy(
+                                overlayOffsetX = 0f,
+                                overlayOffsetY = 0f,
+                                overlayScale = 1f,
+                                publicUiTextScale = 1f
+                            ))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("بازنشانی کالیبراسیون نمایش عمومی") }
                 }
             }
         }
@@ -329,6 +398,21 @@ private fun ColorPickerDialog(initialHex: String, onDismiss: () -> Unit, onConfi
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun OffsetRow(
+    title: String,
+    value: Float,
+    min: Float,
+    max: Float,
+    onChange: (Float) -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, color = Color.White, fontSize = 12.sp, modifier = Modifier.width(118.dp))
+        Slider(value = value, onValueChange = onChange, valueRange = min..max, modifier = Modifier.weight(1f))
+        Text("${value.toInt()} px", color = Color.LightGray, fontSize = 11.sp, modifier = Modifier.width(58.dp), textAlign = TextAlign.End)
     }
 }
 

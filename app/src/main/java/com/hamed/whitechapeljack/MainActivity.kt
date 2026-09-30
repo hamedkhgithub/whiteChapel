@@ -356,7 +356,14 @@ private fun Splash(onDone: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(12.dp))
-            Text("Initializing…", color = Gold, fontSize = 13.sp)
+            Text(
+                "Initializing...",
+                color = Gold,
+                fontSize = 13.sp,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Left,
+                style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr)
+            )
         }
     }
 }
@@ -381,19 +388,23 @@ private fun Home(
             if (TvServerInfo.url.isNotBlank()) {
                 Text("نمایش عمومی: ${TvServerInfo.url}", color = Gold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
             }
-            MenuButton("▶", "شروع بازی جدید", "کلاسیک • نیازمند صفحه بازی", true) {
-                if (hasGame) pendingNewGame = "classic" else onNewGame()
-            }
-            Spacer(Modifier.height(10.dp))
-            MenuButton("▰", "ادامه بازی کلاسیک", "ادامه بازی کلاسیک", hasGame, onContinue)
-            Spacer(Modifier.height(10.dp))
-            MenuButton("⌖", "شروع بازی جدید با نقشه", "نقشه دیجیتال • بدون صفحه بازی", true) {
-                if (hasMapGame) pendingNewGame = "digital" else onNewMapGame()
-            }
-            Spacer(Modifier.height(10.dp))
-            MenuButton("◉", "ادامه بازی با نقشه", "ادامه بازی با نقشه دیجیتال", hasMapGame, onContinueMap)
-            Spacer(Modifier.height(10.dp))
-            MenuButton("⚙", "تنظیمات", "ظاهر گوشی و نمایش عمومی", true, onSettings)
+            HomeGameRow(
+                newTitle = "شروع بازی جدید با نقشه",
+                newIcon = "🗺️",
+                continueEnabled = hasMapGame,
+                onNew = { if (hasMapGame) pendingNewGame = "digital" else onNewMapGame() },
+                onContinue = onContinueMap
+            )
+            Spacer(Modifier.height(12.dp))
+            HomeGameRow(
+                newTitle = "شروع بازی جدید بدون نقشه",
+                newIcon = "📝",
+                continueEnabled = hasGame,
+                onNew = { if (hasGame) pendingNewGame = "classic" else onNewGame() },
+                onContinue = onContinue
+            )
+            Spacer(Modifier.height(12.dp))
+            HomeSettingsButton(onSettings)
             Spacer(Modifier.weight(.12f))
         }
     }
@@ -1031,6 +1042,56 @@ private fun PinField(value: String, onValue: (String) -> Unit, label: String) {
         ),
         modifier = Modifier.fillMaxWidth()
     )
+}
+
+@Composable
+private fun HomeGameRow(
+    newTitle: String,
+    newIcon: String,
+    continueEnabled: Boolean,
+    onNew: () -> Unit,
+    onContinue: () -> Unit
+) {
+    Row(Modifier.fillMaxWidth().height(72.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Button(
+            onClick = onNew,
+            modifier = Modifier.weight(2f).fillMaxHeight().border(1.dp, Gold, RoundedCornerShape(9.dp)),
+            shape = RoundedCornerShape(9.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = DarkButton, contentColor = Gold),
+            contentPadding = PaddingValues(horizontal = 12.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+                Text(newTitle, color = Color(0xFFF2DFC0), fontWeight = FontWeight.Bold, fontSize = 15.sp, textAlign = TextAlign.Right)
+                Spacer(Modifier.width(8.dp))
+                Text(newIcon, fontSize = 24.sp)
+            }
+        }
+        Button(
+            onClick = onContinue,
+            enabled = continueEnabled,
+            modifier = Modifier.weight(1f).fillMaxHeight().border(1.dp, Gold, RoundedCornerShape(9.dp)),
+            shape = RoundedCornerShape(9.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = DarkButton, contentColor = Gold,
+                disabledContainerColor = Color(0xD915120F), disabledContentColor = Gold.copy(.55f)
+            ),
+            contentPadding = PaddingValues(horizontal = 8.dp)
+        ) {
+            Text("ادامه بازی", fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun HomeSettingsButton(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(62.dp).border(1.dp, Gold, RoundedCornerShape(9.dp)),
+        shape = RoundedCornerShape(9.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = DarkButton, contentColor = Gold)
+    ) {
+        Text("⚙  تنظیمات", color = Color(0xFFF2DFC0), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+    }
 }
 
 @Composable

@@ -84,7 +84,11 @@ object DigitalGameStore {
             if(type=="COACH" || type=="ALLEY") moveSpecials.put(JSONObject().put("type",type).put("from",usedTrack+1).put("to",usedTrack+cost))
             usedTrack+=cost
         }
-        pub.put("women",wa).put("digitalPolice",pa).put("crime",ca).put("clues",cla)
+        val setupCrossings=JSONArray()
+        if(phase=="HELL_POLICE") YELLOW_CROSSING_IDS.forEach { id ->
+            pp[id]?.let { p -> setupCrossings.put(JSONObject().put("x",p.normX).put("y",p.normY)) }
+        }
+        pub.put("women",wa).put("digitalPolice",pa).put("crime",ca).put("clues",cla).put("setupCrossings",setupCrossings)
             .put("moveTrack",o.optInt("moveTrack",0)).put("moveSpecials",moveSpecials)
             .put("appearance",publicAppearance.toJson()).put("publicMessage",o.optString("publicMessage","")).put("publicPhase",publicPhaseName(o.optString("phase")));TvMapHub.setState(pub)
     }
@@ -292,7 +296,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                             o.put("police",list.json());save()
                         }
                     }
-                },Modifier.weight(1f),secondaryPoints=hp,secondaryMarkers=women.associate{it.point to victimColor(it,false)},secondaryShape=MapMarkerShape.HEART,overlayPoints=hp,requiredPoints=if(night>1)previousPolicePoints else emptySet(),moveTrackVisual=trackVisual)
+                },Modifier.weight(1f),secondaryPoints=hp,secondaryMarkers=women.associate{it.point to victimColor(it,false)},secondaryShape=MapMarkerShape.HEART,overlayPoints=hp,requiredPoints=if(night>1)previousPolicePoints else emptySet(),yellowSetupPoints=YELLOW_CROSSING_IDS,moveTrackVisual=trackVisual)
                 Button(onClick={setPhase("HAND_JACK")},enabled=setupValid,modifier=Modifier.fillMaxWidth()){Text("تحویل به جک")}
             }
             "HAND_JACK"->Handoff("گوشی را به جک بدهید") {val realWomen=women.filter{it.real};o.put("women",realWomen.json()).put("time",1);setPublicMessage(o,"قربانی‌های جعلی حذف شدند و قربانی‌های واقعی روی نقشه باقی ماندند.");setPhase("HELL_DECISION")}
@@ -706,6 +710,7 @@ private data class MoveTrackPoint(val id:Int,val normX:Float,val normY:Float)
     secondaryShape:MapMarkerShape = MapMarkerShape.CIRCLE,
     jackPoint:Int? = null,
     requiredPoints:Set<Int> = emptySet(),
+    yellowSetupPoints:Set<Int> = emptySet(),
     moveTrackVisual:MoveTrackVisual? = null
 ){
     val context=LocalContext.current
@@ -774,6 +779,18 @@ private data class MoveTrackPoint(val id:Int,val normX:Float,val normY:Float)
             // by HELL_POLICE, so it disappears automatically after leaving that phase.
             requiredPoints.forEach{n->points.firstOrNull{it.number==n}?.let{p->
                 drawCircle(FGold,policeRadius*1.55f,center(p),style=Stroke(2.5.dp.toPx()))
+            }}
+            // During HELL_POLICE, outline the seven printed yellow setup crossings.
+            // This is visual guidance only; placement validation above remains unchanged.
+            val yellowGuideSide=30.dp.toPx()*appearance.yellowCrossingSize
+            yellowSetupPoints.forEach{n->points.firstOrNull{it.number==n}?.let{p->
+                val c=center(p)
+                drawRect(
+                    Color(0xFFFFD600),
+                    topLeft=Offset(c.x-yellowGuideSide/2f,c.y-yellowGuideSide/2f),
+                    size=Size(yellowGuideSide,yellowGuideSide),
+                    style=Stroke(2.5.dp.toPx())
+                )
             }}
             // Marker geometry below is derived from the two SVG files supplied for
             // victims and police. Fill alpha is configurable; the outline stays opaque.
@@ -868,19 +885,64 @@ private data class MoveTrackPoint(val id:Int,val normX:Float,val normY:Float)
             }}
 
             // Crime Scene and clues always use house coordinates, never police/Crossing IDs.
-            val crimeHalf=12.dp.toPx()
+            // Geometry below comes from the supplied target.svg and search.svg files.
+            fun targetSvgPath(c:Offset,targetSize:Float)=Path().apply{
+                fun q(x:Float,y:Float)=svgPoint(c,targetSize,512f,x,y)
+                q(256f,0f).let{moveTo(it.x,it.y)}
+                q(114.84f,0f).let{a->q(0f,114.842f).let{b->q(0f,256f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(0f,397.158f).let{a->q(114.84f,512f).let{b->q(256f,512f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(397.16f,512f).let{a->q(512f,397.158f).let{b->q(512f,256f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(512f,114.842f).let{a->q(397.16f,0f).let{b->q(256f,0f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                close()
+                q(280.774f,460.96f).let{moveTo(it.x,it.y)}
+                q(280.774f,404.645f).let{lineTo(it.x,it.y)};q(231.226f,404.645f).let{lineTo(it.x,it.y)};q(231.226f,460.96f).let{lineTo(it.x,it.y)}
+                q(137.152f,449.658f).let{a->q(62.342f,374.848f).let{b->q(51.04f,280.774f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(107.355f,280.774f).let{lineTo(it.x,it.y)};q(107.355f,231.226f).let{lineTo(it.x,it.y)};q(51.04f,231.226f).let{lineTo(it.x,it.y)}
+                q(62.342f,137.152f).let{a->q(137.152f,62.342f).let{b->q(231.226f,51.04f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(231.226f,107.355f).let{lineTo(it.x,it.y)};q(280.774f,107.355f).let{lineTo(it.x,it.y)};q(280.774f,51.04f).let{lineTo(it.x,it.y)}
+                q(374.847f,62.342f).let{a->q(449.658f,137.152f).let{b->q(460.96f,231.226f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(404.645f,231.226f).let{lineTo(it.x,it.y)};q(404.645f,280.774f).let{lineTo(it.x,it.y)};q(460.96f,280.774f).let{lineTo(it.x,it.y)}
+                q(449.658f,374.848f).let{a->q(374.847f,449.658f).let{b->q(280.774f,460.96f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                close()
+            }
+            fun searchSvgPath(c:Offset,targetSize:Float)=Path().apply{
+                fun q(x:Float,y:Float)=svgPoint(c,targetSize,512f,x,y)
+                q(283.097f,0f).let{moveTo(it.x,it.y)}
+                q(156.88f,0f).let{a->q(54.194f,102.686f).let{b->q(54.194f,228.904f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(54.194f,266.174f).let{a->q(63.153f,301.389f).let{b->q(79.021f,332.517f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(20.774f,390.764f).let{lineTo(it.x,it.y)}
+                q(-6.925f,418.461f).let{a->q(-6.925f,463.53f).let{b->q(20.774f,491.227f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(34.622f,505.077f).let{a->q(52.814f,512f).let{b->q(71.005f,512f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(89.197f,512f).let{a->q(107.39f,505.076f).let{b->q(121.237f,491.227f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(179.483f,432.98f).let{lineTo(it.x,it.y)}
+                q(210.614f,448.849f).let{a->q(245.829f,457.807f).let{b->q(283.097f,457.807f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(409.314f,457.807f).let{a->q(512f,355.121f).let{b->q(512f,228.904f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(512f,102.687f).let{a->q(409.315f,0f).let{b->q(283.097f,0f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}};close()
+                q(87.751f,457.739f).let{moveTo(it.x,it.y)}
+                q(78.516f,466.974f).let{a->q(63.495f,466.971f).let{b->q(54.262f,457.739f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(45.028f,448.506f).let{a->q(45.028f,433.483f).let{b->q(54.262f,424.251f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(105.442f,373.073f).let{lineTo(it.x,it.y)}
+                q(115.425f,385.352f).let{a->q(126.651f,396.577f).let{b->q(138.93f,406.561f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(87.751f,457.739f).let{lineTo(it.x,it.y)};close()
+                q(283.097f,410.448f).let{moveTo(it.x,it.y)}
+                q(182.994f,410.448f).let{a->q(101.553f,329.007f).let{b->q(101.553f,228.904f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(101.553f,128.801f).let{a->q(182.994f,47.36f).let{b->q(283.097f,47.36f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(383.2f,47.36f).let{a->q(464.641f,128.8f).let{b->q(464.641f,228.904f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+                q(464.641f,329.008f).let{a->q(383.201f,410.448f).let{b->q(283.097f,410.448f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}};close()
+            }
             val oldCrimeColor=Color(0xFF8B8B8B)
             crimePoints.forEach{n->overlayPoints.firstOrNull{it.number==n}?.let{p->
                 val c=center(p)
-                val color=if(n in currentCrimePoints) FBlood else oldCrimeColor
-                drawRect(color,topLeft=Offset(c.x-crimeHalf,c.y-crimeHalf),size=Size(crimeHalf*2,crimeHalf*2),style=Stroke(3.dp.toPx()))
+                val color=if(n in currentCrimePoints) hc(appearance.crimeSceneColor) else oldCrimeColor
+                val markerSize=34.dp.toPx()*appearance.crimeSceneSize
+                drawPath(targetSvgPath(c,markerSize),color)
             }}
-            // Clues are hollow yellow diamonds, visually distinct from police circles and victim hearts.
-            val clueHalf=14.dp.toPx()*appearance.clueSize
             val clueColor=hc(appearance.clueColor)
             cluePoints.forEach{n->overlayPoints.firstOrNull{it.number==n}?.let{p->
-                val c=center(p);val diamond=Path().apply{moveTo(c.x,c.y-clueHalf);lineTo(c.x+clueHalf,c.y);lineTo(c.x,c.y+clueHalf);lineTo(c.x-clueHalf,c.y);close()}
-                drawPath(diamond,clueColor.copy(alpha=appearance.clueFillAlpha));drawPath(diamond,clueColor,style=Stroke(2.5.dp.toPx()))
+                val c=center(p);val markerSize=32.dp.toPx()*appearance.clueSize
+                val icon=searchSvgPath(c,markerSize)
+                drawPath(icon,clueColor.copy(alpha=appearance.clueFillAlpha))
+                drawPath(icon,clueColor,style=Stroke(1.5.dp.toPx()))
             }}
             // Jack's current position is private: this X is only requested by the Jack phone screen.
             jackPoint?.let{n->overlayPoints.firstOrNull{it.number==n}?.let{p->
