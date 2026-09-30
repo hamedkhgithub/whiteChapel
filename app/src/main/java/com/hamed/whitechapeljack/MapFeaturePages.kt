@@ -1,5 +1,9 @@
 package com.hamed.whitechapeljack
 
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+
 import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
@@ -671,7 +675,31 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
         }
     }
 }
-@Composable private fun TvLinkCard(){val u=TvServerInfo.url.ifBlank{"در حال ساخت لینک…"};Surface(color=Color(0xFF241E18),shape=RoundedCornerShape(8.dp),modifier=Modifier.fillMaxWidth()){Text("نمایش عمومی: $u",color=FGold,fontSize=11.sp,textAlign=TextAlign.Center,modifier=Modifier.padding(5.dp))}}
+@Composable
+private fun TvLinkCard() {
+    val u = TvServerInfo.url.ifBlank { "در حال ساخت لینک…" }
+    val clipboard = LocalClipboardManager.current
+
+    Surface(
+        color = Color(0xFF241E18),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            "نمایش عمومی: $u",
+            color = FGold,
+            fontSize = 11.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .padding(5.dp)
+                .clickable(enabled = TvServerInfo.url.isNotBlank()) {
+                    clipboard.setText(
+                        AnnotatedString(TvServerInfo.url)
+                    )
+                }
+        )
+    }
+}
 @Composable private fun rememberBoardPointsFeature(file:String):List<BoardPoint>{val c=LocalContext.current;return remember(file){val a=JSONArray(c.assets.open(file).bufferedReader().use{it.readText()});List(a.length()){i->val x=a.getJSONObject(i);BoardPoint(x.optInt("id",i+1),x.getInt("x"),x.getInt("y"),x.getDouble("norm_x").toFloat(),x.getDouble("norm_y").toFloat(),x.getInt("number"))}}}
 
 
