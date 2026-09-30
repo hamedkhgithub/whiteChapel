@@ -2,6 +2,10 @@ package com.hamed.whitechapeljack
 
 import androidx.compose.ui.text.style.TextDirection
 
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.os.Bundle
@@ -379,15 +383,27 @@ private fun Home(
     onSettings: () -> Unit
 ) {
     var pendingNewGame by remember { mutableStateOf<String?>(null) }
+    val clipboard = LocalClipboardManager.current
 
     Box(Modifier.fillMaxSize()) {
         Image(painterResource(R.drawable.home_background), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Color.Black.copy(.12f)))
         Column(Modifier.fillMaxSize().padding(horizontal = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.weight(.20f))
-            if (TvServerInfo.url.isNotBlank()) {
-                Text("نمایش عمومی: ${TvServerInfo.url}", color = Gold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
+if (TvServerInfo.url.isNotBlank()) {
+    Text(
+        "نمایش عمومی: ${TvServerInfo.url}",
+        color = Gold,
+        fontSize = 12.sp,
+        modifier = Modifier
+            .padding(bottom = 10.dp)
+            .clickable {
+                clipboard.setText(
+                    AnnotatedString(TvServerInfo.url)
+                )
             }
+    )
+}
             HomeGameRow(
                 newTitle = "شروع بازی جدید با نقشه",
                 newIcon = "🗺️",
