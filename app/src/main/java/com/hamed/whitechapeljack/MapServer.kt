@@ -94,6 +94,8 @@ class TvMapServer(private val context: Context, private val port: Int = 8766) {
                 "/coach-token" -> sendDrawable(s, R.drawable.coach_track_token_legacy, "image/png")
                 "/alley-token" -> sendDrawable(s, R.drawable.alley_track_token_legacy, "image/png")
                 "/qr" -> sendQr(s)
+                "/intro-hell" -> sendAsset(s, "intro-hell.html", "text/html; charset=utf-8")
+                "/intro-hunting" -> sendAsset(s, "intro-hunting.html", "text/html; charset=utf-8")
                 else -> sendText(s, "text/plain; charset=utf-8", "Not found", status = "404 Not Found")
             }
         }
@@ -154,6 +156,8 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 #base{position:absolute;left:0;top:0;width:1536px;height:1024px;display:block}
 #qrbox{position:absolute;right:10px;top:10px;z-index:1000;background:#fff;padding:6px;border:2px solid #111;box-shadow:0 2px 8px #0009;box-sizing:border-box}
 #qrimg{display:block;width:120px;height:120px}
+#introOverlay{position:fixed;left:0;top:0;width:100%;height:100%;background:#000;z-index:5000;display:none}
+#introFrame{display:block;width:100%;height:100%;border:0;background:#000}
 .m{position:absolute;transform:translate(-50%,-50%);box-sizing:border-box}
 .number-badge{position:absolute;transform:translate(-50%,-50%);width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid rgba(0,0,0,.45);color:#000;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;line-height:1;box-sizing:border-box}.number-badge.red-house{background:rgba(211,47,47,.94);border-color:rgba(122,12,12,.85);color:#fff}
 .woman{width:42px;height:42px;border:0;background:transparent}
@@ -169,6 +173,7 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 </style></head><body>
 <div id="top"><div id="headline"><span>WhiteChapel Map • Legacy TV</span><span id="game"></span><span id="status">در حال اتصال…</span></div><div id="event"></div></div>
 <div id="wrap"><div id="stage"><img id="base" src="/map"><div id="numbers" class="layer"></div><div id="marks" class="layer"></div></div><div id="qrbox"><img id="qrimg" src="/qr" alt="Server QR"></div></div>
+<div id="introOverlay"><iframe id="introFrame" frameborder="0"></iframe></div>
 <script>
 var stage=document.getElementById('stage');
 var base=document.getElementById('base');
@@ -188,6 +193,18 @@ var defaultAppearance={
   overlayOffsetX:0,overlayOffsetY:0,overlayScale:1,publicUiTextScale:1,publicQrScale:1
 };
 var currentAppearance=defaultAppearance;
+var lastIntroId=0;
+var introHideTimer=null;
+function handleIntro(s){
+  var id=Number(s.introId||0),type=String(s.introType||''),overlay=document.getElementById('introOverlay'),frame=document.getElementById('introFrame'),url;
+  if(!id||!type||id===lastIntroId)return;
+  lastIntroId=id;
+  url=(type==='hunting'?'/intro-hunting':'/intro-hell')+'?night='+Number(s.night||1)+'&id='+id;
+  frame.src=url;
+  overlay.style.display='block';
+  if(introHideTimer)clearTimeout(introHideTimer);
+  introHideTimer=setTimeout(function(){overlay.style.display='none';frame.src='about:blank';},4100);
+}
 
 function resizeViewport(){
   var top=document.getElementById('top');
@@ -459,7 +476,7 @@ function refresh(){
   refreshBusy=true;
   xhrJson('/state?t='+(new Date().getTime()),function(s){
     refreshBusy=false;
-    try{renderState(s);}catch(e){document.getElementById('status').innerHTML='خطای نمایش';}
+    try{handleIntro(s);renderState(s);}catch(e){document.getElementById('status').innerHTML='خطای نمایش';}
   },function(){
     refreshBusy=false;
     document.getElementById('status').innerHTML='قطع ارتباط';

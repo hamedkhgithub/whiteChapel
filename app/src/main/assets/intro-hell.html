@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>White Chapel - Hell Intro</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:Arial,sans-serif}
+#nightIntro{position:fixed;left:0;top:0;width:100%;height:100%;background:#000;display:block;opacity:1;z-index:99999}
+#nightTitle{position:absolute;left:0;top:36%;width:100%;text-align:center;color:#fff;font-size:64px;font-weight:bold;opacity:0;transform:scale(.94);-webkit-transform:scale(.94);transition:opacity 700ms ease,transform 900ms ease;-webkit-transition:opacity 700ms ease,-webkit-transform 900ms ease}
+#welcome{position:absolute;left:0;top:53%;width:100%;text-align:center;font-size:38px;font-weight:normal;color:#fff;opacity:0;transform:translateY(10px);-webkit-transform:translateY(10px);transition:opacity 700ms ease,transform 700ms ease;-webkit-transition:opacity 700ms ease,-webkit-transform 700ms ease}
+#hell{color:#D32F2F;font-weight:bold}
+#redLine{position:absolute;left:50%;top:61%;width:0;height:2px;background:#D32F2F;transform:translateX(-50%);-webkit-transform:translateX(-50%);transition:width 900ms ease;-webkit-transition:width 900ms ease;opacity:0}
+#nightTitle.show{opacity:1;transform:scale(1);-webkit-transform:scale(1)}
+#welcome.show{opacity:1;transform:translateY(0);-webkit-transform:translateY(0)}
+#redLine.show{width:260px;opacity:1}
+#nightIntro.hide{opacity:0;transition:opacity 800ms ease;-webkit-transition:opacity 800ms ease}
+</style>
+</head>
+<body>
+<div id="nightIntro"><div id="nightTitle">Night 1</div><div id="welcome">Welcome to <span id="hell">Hell</span></div><div id="redLine"></div></div>
+<script>
+var currentNight = 1;
+function queryNight(){var m=String(window.location.search||'').match(/[?&]night=([0-9]+)/);return m?parseInt(m[1],10):currentNight;}
+function setNightNumber(n){n=parseInt(n,10);if(!n||n<1)n=1;currentNight=n;document.getElementById('nightTitle').innerHTML='Night '+currentNight;}
+function playIntro(n){var intro=document.getElementById('nightIntro'),night=document.getElementById('nightTitle'),welcome=document.getElementById('welcome'),line=document.getElementById('redLine');setNightNumber(n);intro.style.display='block';intro.className='';night.className='';welcome.className='';line.className='';setTimeout(function(){night.className='show';},200);setTimeout(function(){welcome.className='show';},1100);setTimeout(function(){line.className='show';},1400);setTimeout(function(){intro.className='hide';},3000);setTimeout(function(){intro.style.display='none';},3800);}
+window.onload=function(){playIntro(queryNight());};
+</script>
+</body>
+</html>

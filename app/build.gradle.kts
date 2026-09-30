@@ -10,8 +10,8 @@ android {
         applicationId = "com.hamed.whitechapeljack.legacytv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "3.18-home-qr-copy"
+        versionCode = 19
+        versionName = "3.19-night-phase-intros"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

@@ -6,6 +6,8 @@ import androidx.compose.ui.text.AnnotatedString
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.graphics.Color as AndroidColor
+import android.webkit.WebView
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -44,6 +46,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.sqrt
@@ -61,12 +65,42 @@ data class DToken(val id:Int,val point:Int,val color:String,val real:Boolean,val
 private enum class VictimPlacementType { REAL, FAKE }
 private enum class MapMarkerShape { CIRCLE, HEART }
 
+private fun startDigitalIntro(o: JSONObject, type: String) {
+    o.put("introType", type)
+    o.put("introId", System.currentTimeMillis())
+}
+
+@Composable
+private fun DigitalIntroPage(type: String, night: Int) {
+    val context = LocalContext.current
+    val assetName = if (type == "hunting") "intro-hunting.html" else "intro-hell.html"
+    val html = remember(type, night) {
+        context.assets.open(assetName).bufferedReader().use { it.readText() }
+            .replace("var currentNight = 1;", "var currentNight = $night;")
+    }
+    AndroidView(
+        factory = { ctx ->
+            WebView(ctx).apply {
+                setBackgroundColor(AndroidColor.BLACK)
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+                settings.javaScriptEnabled = true
+            }
+        },
+        update = { webView ->
+            webView.loadDataWithBaseURL("file:///android_asset/", html, "text/html", "UTF-8", null)
+        },
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
 object DigitalGameStore {
     private const val PREF="whitechapel_digital_final"; private const val KEY="game"
     fun exists(c:Context)=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).contains(KEY)
     fun newGame(c:Context,hideout:Int,pin:String){
         val o=JSONObject().put("hideout",hideout).put("pin",pin).put("night",1).put("phase","HELL_WOMEN").put("time",1)
             .put("women",JSONArray()).put("police",JSONArray()).put("crime",JSONArray()).put("crimeNight",JSONObject()).put("clues",JSONArray()).put("jackPath",JSONArray()).put("jackMoves",JSONArray()).put("moveTrack",0).put("policeDone",JSONArray()).put("policeSearched",JSONArray()).put("policeIndex",0).put("previousPolicePoints",JSONArray()).put("publicMessage","شب ۱ آغاز شد.")
+        startDigitalIntro(o, "hell")
         save(c,o)
     }
     fun load(c:Context):JSONObject?=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).getString(KEY,null)?.let{runCatching{JSONObject(it)}.getOrNull()}
@@ -95,7 +129,8 @@ object DigitalGameStore {
         }
         pub.put("women",wa).put("digitalPolice",pa).put("crime",ca).put("clues",cla).put("setupCrossings",setupCrossings)
             .put("moveTrack",o.optInt("moveTrack",0)).put("moveSpecials",moveSpecials)
-            .put("appearance",publicAppearance.toJson()).put("publicMessage",o.optString("publicMessage","")).put("publicPhase",publicPhaseName(o.optString("phase")));TvMapHub.setState(pub)
+            .put("appearance",publicAppearance.toJson()).put("publicMessage",o.optString("publicMessage","")).put("publicPhase",publicPhaseName(o.optString("phase")))
+            .put("introType",o.optString("introType","")).put("introId",o.optLong("introId",0));TvMapHub.setState(pub)
     }
 }
 
@@ -170,6 +205,22 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
     val o=remember(rev){DigitalGameStore.load(ctx)}
     if(o==null){Column(Modifier.fillMaxSize().background(Color(0xFF100E0C)).padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("بازی با نقشه‌ای ذخیره نشده است.",color=Color.White);Button(onClick=onBack){Text("بازگشت")}};return}
     val phase=o.optString("phase");val night=o.optInt("night",1);val time=o.optInt("time",1);val women=o.optJSONArray("women")!!.tokens();val police=o.optJSONArray("police")!!.tokens()
+    val introType=o.optString("introType","")
+    val introId=o.optLong("introId",0L)
+    if(introType=="hell" || introType=="hunting"){
+        LaunchedEffect(introId){
+            delay(3900)
+            val latest=DigitalGameStore.load(ctx)
+            if(latest!=null && latest.optLong("introId",0L)==introId){
+                latest.remove("introType")
+                latest.remove("introId")
+                DigitalGameStore.save(ctx,latest)
+                rev++
+            }
+        }
+        DigitalIntroPage(introType,night)
+        return
+    }
     val trackVisual=moveTrackVisual(o)
     val phoneAppearance=remember(rev){AppearanceStore.load(ctx).phone}
     fun policeColor(token:DToken, identityVisible:Boolean=true)=hc(phoneAppearance.policeColor(token.id,token.real,identityVisible))
@@ -375,6 +426,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                             val revealed=police.filter{it.real}.map{it.copy(revealed=true)}
                             o.put("police",revealed.json()).put("policeIndex",0)
                             setPublicMessage(o,"دو قتل شب سوم رخ داد؛ هر دو محل قتل ثبت شدند و تعقیب با نوبت پلیس آغاز می‌شود.")
+                            startDigitalIntro(o,"hunting")
                             setPhase("HUNT_POLICE_HANDOFF")
                         }
                     }else{
@@ -384,6 +436,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                         val revealed=police.filter{it.real}.map{it.copy(revealed=true)}
                         o.put("police",revealed.json()).put("policeIndex",0)
                         setPublicMessage(o,"قتل در خانه ${victim.point} رخ داد؛ محل قتل ثبت شد و مرحله تعقیب آغاز شد.")
+                        startDigitalIntro(o,"hunting")
                         setPhase("HUNT_JACK_UNLOCK")
                     }
                 },Modifier.weight(1f),secondaryPoints=pp,secondaryMarkers=police.associate{it.point to policeColor(it,it.revealed)},crimePoints=(o.optJSONArray("crime")?:JSONArray()).intSet(),currentCrimePoints=currentCrimePoints(o),primaryShape=MapMarkerShape.HEART,moveTrackVisual=trackVisual)
@@ -489,7 +542,9 @@ private fun endNight(o:JSONObject,ctx:Context){
     val finalPolice=o.optJSONArray("police")?.tokens().orEmpty().filter{it.real}
     val previousPoints=JSONArray();finalPolice.forEach{previousPoints.put(it.point)}
     o.put("previousPolicePoints",previousPoints).put("night",n+1).put("phase","HELL_WOMEN").put("time",1).put("women",JSONArray()).put("police",JSONArray()).put("clues",JSONArray()).put("jackPath",JSONArray()).put("jackMoves",JSONArray()).put("moveTrack",0).put("policeDone",JSONArray()).put("policeSearched",JSONArray()).put("policeIndex",0).remove("doubleKillFirst")
-    setPublicMessage(o,"شب $n پایان یافت؛ شب ${n+1} آغاز شد.");DigitalGameStore.save(ctx,o)
+    setPublicMessage(o,"شب $n پایان یافت؛ شب ${n+1} آغاز شد.")
+    startDigitalIntro(o,"hell")
+    DigitalGameStore.save(ctx,o)
 }
 
 
