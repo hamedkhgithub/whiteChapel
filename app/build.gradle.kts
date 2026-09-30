@@ -10,8 +10,8 @@ android {
         applicationId = "com.hamed.whitechapeljack.legacytv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "3.23-two-phone-mode"
+        versionCode = 27
+        versionName = "3.27-rtl-marker-selectors"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

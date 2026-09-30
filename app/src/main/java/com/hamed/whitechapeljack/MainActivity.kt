@@ -390,7 +390,7 @@ private fun Splash(onDone: () -> Unit) {
 }
 
 @Composable
-private fun ServerQrCode(
+fun ServerQrCode(
     url: String,
     modifier: Modifier = Modifier
 ) {
@@ -451,7 +451,7 @@ private fun Home(
         Image(painterResource(R.drawable.home_background), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Color.Black.copy(.12f)))
         Column(Modifier.fillMaxSize().padding(horizontal = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.weight(.20f))
+            Spacer(Modifier.weight(.24f))
 if (TvServerInfo.url.isNotBlank()) {
     val detectiveToken = DigitalGameStore.detectiveToken(context)
     val detectiveUrl = if (hasTwoPhoneGame && detectiveToken.isNotBlank()) "${TvServerInfo.url}/detective?k=$detectiveToken" else ""
@@ -506,7 +506,7 @@ if (TvServerInfo.url.isNotBlank()) {
             )
             Spacer(Modifier.height(12.dp))
             HomeSettingsButton(onSettings)
-            Spacer(Modifier.weight(.12f))
+            Spacer(Modifier.weight(.08f))
         }
     }
 

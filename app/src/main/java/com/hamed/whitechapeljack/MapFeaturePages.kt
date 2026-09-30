@@ -116,11 +116,11 @@ object DigitalGameStore {
     fun detectiveToken(c:Context):String=load(c,true)?.optString("detectiveToken","").orEmpty()
 
     fun newGame(c:Context,hideout:Int,pin:String,twoPhone:Boolean=false){
-        val token=if(twoPhone) java.security.SecureRandom().let { r -> ByteArray(12).also(r::nextBytes).joinToString(""){"%02x".format(it.toInt() and 0xff)} } else ""
+        val token=if(twoPhone) java.security.SecureRandom().let { r -> (1000 + r.nextInt(9000)).toString() } else ""
         val o=JSONObject().put("hideout",hideout).put("pin",if(twoPhone) "" else pin).put("gameMode",if(twoPhone)"two_phone" else "single_phone")
-            .put("detectiveToken",token).put("night",1).put("phase","HELL_WOMEN").put("time",1)
-            .put("women",JSONArray()).put("police",JSONArray()).put("crime",JSONArray()).put("crimeNight",JSONObject()).put("clues",JSONArray()).put("jackPath",JSONArray()).put("jackMoves",JSONArray()).put("moveTrack",0).put("policeDone",JSONArray()).put("policeSearched",JSONArray()).put("policeIndex",0).put("previousPolicePoints",JSONArray()).put("publicMessage","شب ۱ آغاز شد.")
-        startDigitalIntro(o, "hell")
+            .put("detectiveToken",token).put("night",1).put("phase",if(twoPhone) "TWO_PHONE_LOBBY" else "HELL_WOMEN").put("time",1)
+            .put("women",JSONArray()).put("police",JSONArray()).put("crime",JSONArray()).put("crimeNight",JSONObject()).put("clues",JSONArray()).put("jackPath",JSONArray()).put("jackMoves",JSONArray()).put("moveTrack",0).put("policeDone",JSONArray()).put("policeSearched",JSONArray()).put("policeIndex",0).put("previousPolicePoints",JSONArray()).put("publicMessage",if(twoPhone) "در انتظار شروع بازی توسط کارآگاه." else "شب ۱ آغاز شد.")
+        if(!twoPhone) startDigitalIntro(o, "hell")
         save(c,o)
     }
     fun load(c:Context,twoPhone:Boolean=false):JSONObject?=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).getString(key(twoPhone),null)?.let{runCatching{JSONObject(it)}.getOrNull()}
@@ -154,7 +154,7 @@ object DigitalGameStore {
         val o=load(c,true)?:return JSONObject().put("ok",false).put("error","No two-phone game")
         if(token.isBlank() || token!=o.optString("detectiveToken")) return JSONObject().put("ok",false).put("error","Invalid detective link")
         val phase=o.optString("phase");val detectivePhases=setOf("HELL_POLICE","HELL_MOVE_WOMEN","HUNT_POLICE_MOVE","HUNT_POLICE_ACTION")
-        val introRunning=o.optString("introType","").isNotBlank();val out=JSONObject().put("ok",true).put("night",o.optInt("night",1)).put("time",o.optInt("time",1)).put("phase",phase).put("active",phase in detectivePhases && !introRunning).put("introRunning",introRunning).put("updatedAt",o.optLong("updatedAt",0)).put("message",o.optString("publicMessage",""))
+        val introRunning=o.optString("introType","").isNotBlank();val out=JSONObject().put("ok",true).put("night",o.optInt("night",1)).put("time",o.optInt("time",1)).put("phase",phase).put("lobby",phase=="TWO_PHONE_LOBBY").put("active",phase in detectivePhases && !introRunning).put("introRunning",introRunning).put("updatedAt",o.optLong("updatedAt",0)).put("message",o.optString("publicMessage",""))
         val pa=JSONArray();(o.optJSONArray("police")?:JSONArray()).let{a->for(i in 0 until a.length()){val x=a.getJSONObject(i);pa.put(JSONObject().put("id",x.optInt("id")).put("point",x.optInt("point")).put("real",x.optBoolean("real",true)).put("revealed",x.optBoolean("revealed",false)).put("color",x.optString("color","#777777")))}};out.put("police",pa)
         val wa=JSONArray();(o.optJSONArray("women")?:JSONArray()).let{a->for(i in 0 until a.length()){val x=a.getJSONObject(i);wa.put(JSONObject().put("id",x.optInt("id")).put("point",x.optInt("point")))}};out.put("women",wa)
         out.put("crime",o.optJSONArray("crime")?:JSONArray()).put("clues",o.optJSONArray("clues")?:JSONArray()).put("previousPolicePoints",o.optJSONArray("previousPolicePoints")?:JSONArray()).put("policeDone",o.optJSONArray("policeDone")?:JSONArray()).put("policeSearched",o.optJSONArray("policeSearched")?:JSONArray())
@@ -168,6 +168,12 @@ object DigitalGameStore {
         if(o.optString("introType","").isNotBlank()) return bad("Intro is still running")
         val id=args["id"]?.toIntOrNull();val point=args["point"]?.toIntOrNull();val police=o.optJSONArray("police")?.tokens().orEmpty();val women=o.optJSONArray("women")?.tokens().orEmpty()
         when(action){
+            "startGame"->{
+                if(phase!="TWO_PHONE_LOBBY")return bad("Game has already started")
+                o.put("phase","HELL_WOMEN")
+                setPublicMessage(o,"شب ۱ آغاز شد.")
+                startDigitalIntro(o,"hell")
+            }
             "placePolice"->{
                 if(phase!="HELL_POLICE"||id==null||point==null||id !in 1..7)return bad("Invalid police placement")
                 val prev=(o.optJSONArray("previousPolicePoints")?:JSONArray()).intSet();val extra=YELLOW_CROSSING_IDS-prev;val allowed=if(o.optInt("night",1)==1)YELLOW_CROSSING_IDS else prev+extra
@@ -244,6 +250,7 @@ private fun moveTrackVisual(o:JSONObject):MoveTrackVisual{
 }
 
 private fun publicPhaseName(phase:String)=when(phase){
+    "TWO_PHONE_LOBBY"->"در انتظار شروع بازی"
     "HELL_WOMEN"->"آماده‌سازی • جانمایی قربانی‌ها"
     "HELL_POLICE"->"آماده‌سازی • جانمایی پلیس"
     "HELL_DECISION"->"آماده‌سازی • تصمیم جک"
@@ -278,6 +285,28 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
     val introType=o.optString("introType","")
     val introId=o.optLong("introId",0L)
     val introHouses=(o.optJSONArray("introHouses")?:JSONArray()).let { a -> List(a.length()){ i -> a.optInt(i) }.filter{it>0}.sorted() }
+    if(twoPhone && phase=="TWO_PHONE_LOBBY"){
+        val publicUrl=TvServerInfo.url
+        val detectiveToken=o.optString("detectiveToken","")
+        val detectiveUrl=if(publicUrl.isNotBlank() && detectiveToken.isNotBlank()) "$publicUrl/detective?k=$detectiveToken" else ""
+        Column(Modifier.fillMaxSize().background(Color(0xFF100E0C)).padding(20.dp),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){
+            Text("منتظر شروع بازی توسط کارآگاه",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center)
+            Spacer(Modifier.height(12.dp))
+            Text("کارآگاه لینک مخصوص خود را باز کند و دکمه «شروع بازی» را بزند.",color=FGold,fontSize=13.sp,textAlign=TextAlign.Center)
+            Spacer(Modifier.height(22.dp))
+            if(publicUrl.isNotBlank() && detectiveUrl.isNotBlank()){
+                Row(horizontalArrangement=Arrangement.spacedBy(28.dp),verticalAlignment=Alignment.Top){
+                    Column(horizontalAlignment=Alignment.CenterHorizontally){ServerQrCode(publicUrl);Text("Public",color=FGold,fontSize=11.sp)}
+                    Column(horizontalAlignment=Alignment.CenterHorizontally){ServerQrCode(detectiveUrl);Text("Detective",color=FGold,fontSize=11.sp)}
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Detective code: $detectiveToken",color=Color.White,fontSize=14.sp,fontWeight=FontWeight.Bold)
+            } else Text("در حال ساخت لینک…",color=FGold)
+            Spacer(Modifier.height(20.dp))
+            TextButton(onClick=onBack){Text("‹ خانه",color=FGold)}
+        }
+        return
+    }
     if(introType=="hell" || introType=="hunting"){
         LaunchedEffect(introId){
             delay(if(introType=="hunting")4700 else 3900)
@@ -534,7 +563,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                     if(escaped){endNight(o,ctx);rev++}
                     else if(o.optInt("moveTrack",0)>=moveLimit){
                         o.put("phase","GAME_OVER_POLICE");setPublicMessage(o,"شمارنده حرکت جک تمام شد و او به مخفیگاه نرسید؛ کارآگاه‌ها برنده شدند.");save()
-                    }else{o.put("policeDone",JSONArray()).put("policeSearched",JSONArray()).put("policeIndex",0);setPhase("HUNT_POLICE_MOVE")}
+                    }else{o.put("policeDone",JSONArray()).put("policeSearched",JSONArray()).put("policeIndex",0);setPublicMessage(o,"حرکت جک پایان یافت؛ نوبت حرکت پلیس‌ها آغاز شد.");setPhase("HUNT_POLICE_MOVE")}
                 }, onSave={save()})
             }
             "HUNT_POLICE_MOVE"->{
@@ -547,7 +576,7 @@ private fun setPublicMessage(o:JSONObject,message:String){o.put("publicMessage",
                     }
                     movingTokenId=id;pendingPoint=null
                 }
-                Text("روی پلیس یا نوار رنگی بالای صفحه بزن، سپس مقصد را لمس کن (حداکثر ۲ تقاطع). با انتخاب پلیس بعدی، حرکت قبلی ذخیره می‌شود.",color=Color.White,fontSize=12.sp)
+                Text("روی پلیس یا کلاه رنگی بالای صفحه بزن، سپس مقصد را لمس کن (حداکثر ۲ تقاطع). با انتخاب پلیس بعدی، حرکت قبلی ذخیره می‌شود.",color=Color.White,fontSize=12.sp)
                 GameMap(pp,true,preview.associate{it.point to policeColor(it,true)},activePoint?.let(::setOf)?:emptySet(),{p->
                     val tokenAtPoint=preview.firstOrNull{it.point==p.number}
                     when{
@@ -755,14 +784,82 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
     )
 }
 
+@Composable
+private fun VictimHeartIcon(color:Color,fillAlpha:Float,modifier:Modifier=Modifier){
+    Canvas(modifier){
+        val c=Offset(size.width/2f,size.height/2f)
+        val targetSize=minOf(size.width,size.height)*0.82f
+        fun svgPoint(viewBox:Float,x:Float,y:Float)=Offset(c.x-targetSize/2f+(x/viewBox)*targetSize,c.y-targetSize/2f+(y/viewBox)*targetSize)
+        val fill=Path().apply{
+            fun q(x:Float,y:Float)=svgPoint(24f,x+1f,y+2f)
+            q(18.6707335f,10.0469949f).let{moveTo(it.x,it.y)}
+            q(20.4444204f,8.20475335f).let{a->q(20.4428931f,5.22154308f).let{b->q(18.6673208f,3.38125356f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(16.8917484f,1.54096405f).let{a->q(14.0134482f,1.53938105f).let{b->q(12.2359925f,3.37771648f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(10.9702069f,4.68963823f).let{lineTo(it.x,it.y)};q(9.74663024f,3.42106257f).let{lineTo(it.x,it.y)}
+            q(7.97421677f,1.58443498f).let{a->q(5.10087015f,1.58474944f).let{b->q(3.32883095f,3.42176494f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(1.55679174f,5.25878043f).let{a->q(1.55709514f,8.23685657f).let{b->q(3.32950861f,10.0734842f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(10.9750473f,18f).let{lineTo(it.x,it.y)};q(18.6707335f,10.0469949f).let{lineTo(it.x,it.y)};close()
+        }
+        val outline=Path().apply{
+            fun q(x:Float,y:Float)=svgPoint(24f,x+1f,y+2f)
+            q(9.53555048f,19.3884699f).let{moveTo(it.x,it.y)};q(1.89036034f,11.4623154f).let{lineTo(it.x,it.y)}
+            q(-0.629744037f,8.85090825f).let{a->q(-0.630172509f,4.64518565f).let{b->q(1.88938959f,2.03323745f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(4.37655172f,-0.545122756f).let{a->q(8.39543397f,-0.61732966f).let{b->q(10.9687169f,1.81730162f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(13.5445576f,-0.66312694f).let{a->q(17.60123f,-0.604129239f).let{b->q(20.1066156f,1.99257419f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(22.6292352f,4.60713978f).let{a->q(22.6313904f,8.81686087f).let{b->q(20.1115002f,11.434147f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(12.4427074f,19.3824584f).let{lineTo(it.x,it.y)}
+            q(12.1544685f,19.6812032f).let{a->q(11.7964701f,19.8704534f).let{b->q(11.4198481f,19.9502088f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(10.7609371f,20.0997637f).let{a->q(10.0408904f,19.9123813f).let{b->q(9.53555048f,19.3884699f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}};close()
+        }
+        drawPath(fill,color.copy(alpha=fillAlpha));drawPath(outline,color,style=Stroke(2.2.dp.toPx()))
+    }
+}
+
+@Composable
+private fun PoliceHatIcon(color:Color,fillAlpha:Float,disabled:Boolean=false,modifier:Modifier=Modifier){
+    Canvas(modifier){
+        val c=Offset(size.width/2f,size.height/2f)
+        val targetSize=minOf(size.width,size.height)*0.88f
+        fun q(x:Float,y:Float)=Offset(c.x-targetSize/2f+(x/512f)*targetSize,c.y-targetSize/2f+(y/512f)*targetSize)
+        val hat=Path().apply{
+            q(503.407f,432.422f).let{moveTo(it.x,it.y)}
+            q(492.772f,431.586f).let{a->q(482.021f,431.156f).let{b->q(471.177f,431.156f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(392.181f,431.156f).let{a->q(318.468f,453.738f).let{b->q(256.109f,492.783f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(221.336f,471.014f).let{a->q(183.034f,454.353f).let{b->q(142.247f,443.892f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(109.901f,435.567f).let{a->q(75.987f,431.156f).let{b->q(41.041f,431.156f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(30.197f,431.156f).let{a->q(19.458f,431.586f).let{b->q(8.823f,432.422f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(21.014f,387.142f).let{a->q(68.035f,373.210f).let{b->q(68.035f,373.210f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(72.888f,335.454f).let{lineTo(it.x,it.y)};q(90.965f,194.599f).let{lineTo(it.x,it.y)}
+            q(96.294f,153.069f).let{a->q(116.647f,116.741f).let{b->q(146.125f,90.792f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(175.615f,64.855f).let{a->q(214.231f,49.297f).let{b->q(256.120f,49.297f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(339.876f,49.297f).let{a->q(410.594f,111.528f).let{b->q(421.264f,194.599f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}}
+            q(444.194f,373.211f).let{lineTo(it.x,it.y)}
+            q(444.195f,373.210f).let{a->q(491.216f,387.143f).let{b->q(503.407f,432.422f).let{d->cubicTo(a.x,a.y,b.x,b.y,d.x,d.y)}}};close()
+        }
+        val badge=Path().apply{
+            val pts=listOf(256.117f to 194.281f,279.646f to 217.811f,312.921f to 217.811f,312.921f to 251.086f,336.449f to 274.614f,312.921f to 298.143f,312.921f to 331.418f,279.646f to 331.418f,256.117f to 354.947f,232.588f to 331.418f,199.313f to 331.418f,199.313f to 298.143f,175.784f to 274.614f,199.313f to 251.086f,199.313f to 217.811f,232.588f to 217.811f)
+            pts.forEachIndexed{i,(x,y)->q(x,y).let{if(i==0)moveTo(it.x,it.y) else lineTo(it.x,it.y)}};close()
+        }
+        val alpha=if(disabled) .28f else 1f
+        drawPath(hat,color.copy(alpha=fillAlpha*alpha));drawPath(hat,color.copy(alpha=alpha),style=Stroke(2.2.dp.toPx()));drawPath(badge,color.copy(alpha=alpha),style=Stroke(1.5.dp.toPx()))
+    }
+}
+
 @Composable private fun PoliceActionSelector(real:List<DToken>,selected:Int,done:Set<Int>,onSelect:(Int)->Unit){
     val appearance=AppearanceStore.load(LocalContext.current).phone
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){
-        real.forEach{token->
-            val disabled=token.id in done
-            Surface(onClick={if(!disabled)onSelect(token.id)},enabled=!disabled,color=if(selected==token.id)Color(0xFF3A332B) else Color(0xFF1D1A17),shape=RoundedCornerShape(8.dp),border=androidx.compose.foundation.BorderStroke(if(selected==token.id)2.dp else 1.dp,if(selected==token.id)FGold else Color.DarkGray),modifier=Modifier.weight(1f).height(48.dp)){
-                Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
-                    Box(Modifier.width(34.dp).height(10.dp).background(hc(appearance.policeColor(token.id,token.real,true)).copy(alpha=if(disabled).28f else 1f),RoundedCornerShape(8.dp)))
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl){
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){
+            real.forEach{token->
+                val disabled=token.id in done
+                Surface(onClick={if(!disabled)onSelect(token.id)},enabled=!disabled,color=if(selected==token.id)Color(0xFF3A332B) else Color(0xFF1D1A17),shape=RoundedCornerShape(8.dp),border=androidx.compose.foundation.BorderStroke(if(selected==token.id)2.dp else 1.dp,if(selected==token.id)FGold else Color.DarkGray),modifier=Modifier.weight(1f).height(48.dp)){
+                    Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+                        PoliceHatIcon(
+                            color=hc(appearance.policeColor(token.id,token.real,true)),
+                            fillAlpha=appearance.policeFillAlpha,
+                            disabled=disabled,
+                            modifier=Modifier.size(38.dp)
+                        )
+                    }
                 }
             }
         }
@@ -777,24 +874,26 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
     appearance: DisplayAppearance,
     onSelect: (VictimPlacementType) -> Unit
 ){
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
-        listOf(
-            VictimPlacementType.REAL to hc(appearance.victimRealColor),
-            VictimPlacementType.FAKE to hc(appearance.victimFakeColor)
-        ).forEach { (type,color) ->
-            val selected = selectedType == type
-            Surface(
-                onClick = { onSelect(type) },
-                color = if(selected) Color(0xFF3A332B) else Color(0xFF1D1A17),
-                shape = RoundedCornerShape(8.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    if(selected) 3.dp else 1.dp,
-                    if(selected) FGold else Color.DarkGray
-                ),
-                modifier = Modifier.weight(1f).height(56.dp)
-            ){
-                Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
-                    Box(Modifier.size(32.dp).background(color.copy(alpha=appearance.victimFillAlpha),RoundedCornerShape(50)).border(5.dp,color,RoundedCornerShape(50)))
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl){
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
+            listOf(
+                VictimPlacementType.REAL to hc(appearance.victimRealColor),
+                VictimPlacementType.FAKE to hc(appearance.victimFakeColor)
+            ).forEach { (type,color) ->
+                val selected = selectedType == type
+                Surface(
+                    onClick = { onSelect(type) },
+                    color = if(selected) Color(0xFF3A332B) else Color(0xFF1D1A17),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        if(selected) 3.dp else 1.dp,
+                        if(selected) FGold else Color.DarkGray
+                    ),
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ){
+                    Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+                        VictimHeartIcon(color,appearance.victimFillAlpha,Modifier.size(40.dp))
+                    }
                 }
             }
         }
@@ -802,15 +901,21 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
 }
 
 @Composable private fun TokenSelector(colors:List<Color>,fillAlpha:Float,selected:Int,onSelect:(Int)->Unit){
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){
-        colors.forEachIndexed{i,color->
-            Surface(
-                onClick={onSelect(i+1)},
-                color=if(selected==i+1)Color(0xFF3A332B) else Color(0xFF1D1A17),
-                shape=RoundedCornerShape(8.dp),
-                border=androidx.compose.foundation.BorderStroke(if(selected==i+1)2.dp else 1.dp,if(selected==i+1)FGold else Color.DarkGray),
-                modifier=Modifier.weight(1f).height(44.dp)
-            ){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Box(Modifier.size(25.dp).background(color.copy(alpha=fillAlpha),RoundedCornerShape(50)).border(4.dp,color,RoundedCornerShape(50)))}}
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl){
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){
+            colors.forEachIndexed{i,color->
+                Surface(
+                    onClick={onSelect(i+1)},
+                    color=if(selected==i+1)Color(0xFF3A332B) else Color(0xFF1D1A17),
+                    shape=RoundedCornerShape(8.dp),
+                    border=androidx.compose.foundation.BorderStroke(if(selected==i+1)2.dp else 1.dp,if(selected==i+1)FGold else Color.DarkGray),
+                    modifier=Modifier.weight(1f).height(44.dp)
+                ){
+                    Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){
+                        PoliceHatIcon(color,fillAlpha,modifier=Modifier.size(32.dp))
+                    }
+                }
+            }
         }
     }
 }
