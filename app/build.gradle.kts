@@ -10,8 +10,8 @@ android {
         applicationId = "com.hamed.whitechapeljack.legacytv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "3.17-svg-clue-crime-hell-ui"
+        versionCode = 18
+        versionName = "3.18-home-qr-copy"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -27,5 +27,6 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("com.google.zxing:core:3.5.3")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

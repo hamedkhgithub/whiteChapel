@@ -1,6 +1,9 @@
 package com.hamed.whitechapeljack
 
 import android.content.Context
+import android.graphics.Bitmap
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -90,9 +93,28 @@ class TvMapServer(private val context: Context, private val port: Int = 8766) {
                 "/jack-token" -> sendDrawable(s, R.drawable.jack_track_token, "image/png")
                 "/coach-token" -> sendDrawable(s, R.drawable.coach_track_token_legacy, "image/png")
                 "/alley-token" -> sendDrawable(s, R.drawable.alley_track_token_legacy, "image/png")
+                "/qr" -> sendQr(s)
                 else -> sendText(s, "text/plain; charset=utf-8", "Not found", status = "404 Not Found")
             }
         }
+    }
+
+    private fun sendQr(socket: Socket) {
+        val value = TvServerInfo.url.ifBlank { "http://${localIp()}:$port" }
+        val matrix = QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, 320, 320)
+        val bitmap = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888)
+        for (y in 0 until 320) {
+            for (x in 0 until 320) {
+                bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        val bytes = ByteArrayOutputStream().use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            out.toByteArray()
+        }
+        bitmap.recycle()
+        val header = "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: ${bytes.size}\r\nCache-Control: no-store, no-cache, must-revalidate, max-age=0\r\nPragma: no-cache\r\nConnection: close\r\n\r\n"
+        socket.getOutputStream().apply { write(header.toByteArray()); write(bytes); flush() }
     }
 
     private fun sendDrawable(socket: Socket, resId: Int, contentType: String) {
@@ -130,6 +152,8 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 #stage{position:absolute;left:0;top:0;width:1536px;height:1024px;transform-origin:0 0}
 .layer{position:absolute;left:0;top:0;width:1536px;height:1024px;pointer-events:none}
 #base{position:absolute;left:0;top:0;width:1536px;height:1024px;display:block}
+#qrbox{position:absolute;right:10px;top:10px;z-index:1000;background:#fff;padding:6px;border:2px solid #111;box-shadow:0 2px 8px #0009;box-sizing:border-box}
+#qrimg{display:block;width:120px;height:120px}
 .m{position:absolute;transform:translate(-50%,-50%);box-sizing:border-box}
 .number-badge{position:absolute;transform:translate(-50%,-50%);width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid rgba(0,0,0,.45);color:#000;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;line-height:1;box-sizing:border-box}.number-badge.red-house{background:rgba(211,47,47,.94);border-color:rgba(122,12,12,.85);color:#fff}
 .woman{width:42px;height:42px;border:0;background:transparent}
@@ -144,7 +168,7 @@ html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif;heigh
 .track-coach-map{position:absolute;transform:translate(-50%,-50%);background:url('/coach-token') center/contain no-repeat;z-index:12;box-sizing:border-box;filter:drop-shadow(0 1px 3px #0009)}
 </style></head><body>
 <div id="top"><div id="headline"><span>WhiteChapel Map • Legacy TV</span><span id="game"></span><span id="status">در حال اتصال…</span></div><div id="event"></div></div>
-<div id="wrap"><div id="stage"><img id="base" src="/map"><div id="numbers" class="layer"></div><div id="marks" class="layer"></div></div></div>
+<div id="wrap"><div id="stage"><img id="base" src="/map"><div id="numbers" class="layer"></div><div id="marks" class="layer"></div></div><div id="qrbox"><img id="qrimg" src="/qr" alt="Server QR"></div></div>
 <script>
 var stage=document.getElementById('stage');
 var base=document.getElementById('base');
@@ -161,7 +185,7 @@ var defaultAppearance={
   victimRealColor:'#D32F2F',victimFakeColor:'#FFFFFF',victimSize:1,victimFillAlpha:.42,
   clueColor:'#F0C52B',clueSize:1,clueFillAlpha:.32,
   crimeSceneColor:'#D01818',crimeSceneSize:1,yellowCrossingSize:1,houseNumberScale:1,
-  overlayOffsetX:0,overlayOffsetY:0,overlayScale:1,publicUiTextScale:1
+  overlayOffsetX:0,overlayOffsetY:0,overlayScale:1,publicUiTextScale:1,publicQrScale:1
 };
 var currentAppearance=defaultAppearance;
 
@@ -247,13 +271,16 @@ function placeCalibrated(e,x,y){
   e.style.top=calibratedY(y)+'px';
 }
 function applyAppearance(a){
-  var uiScale,top,event;
+  var uiScale,qrScale,top,event,qr;
   currentAppearance=a||defaultAppearance;
   uiScale=Math.max(.7,Math.min(2,Number(currentAppearance.publicUiTextScale||1)));
+  qrScale=Math.max(.5,Math.min(2,Number(currentAppearance.publicQrScale||1)));
   top=document.getElementById('top');
   event=document.getElementById('event');
+  qr=document.getElementById('qrimg');
   if(top)top.style.fontSize=(16*uiScale)+'px';
   if(event)event.style.fontSize=(13*uiScale)+'px';
+  if(qr){qr.style.width=(120*qrScale)+'px';qr.style.height=(120*qrScale)+'px';}
   renderNumbers();
 }
 function svgEl(name){return document.createElementNS('http://www.w3.org/2000/svg',name);}

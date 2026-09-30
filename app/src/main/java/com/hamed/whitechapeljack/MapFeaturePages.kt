@@ -6,6 +6,7 @@ import androidx.compose.ui.text.AnnotatedString
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -679,6 +680,7 @@ private fun markPoliceSearched(o:JSONObject,id:Int){
 private fun TvLinkCard() {
     val u = TvServerInfo.url.ifBlank { "در حال ساخت لینک…" }
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
 
     Surface(
         color = Color(0xFF241E18),
@@ -696,6 +698,7 @@ private fun TvLinkCard() {
                     clipboard.setText(
                         AnnotatedString(TvServerInfo.url)
                     )
+                    Toast.makeText(context, "کپی شد", Toast.LENGTH_SHORT).show()
                 }
         )
     }

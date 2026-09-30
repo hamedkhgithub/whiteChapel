@@ -54,7 +54,8 @@ data class DisplayAppearance(
     val overlayOffsetX: Float = 0f,
     val overlayOffsetY: Float = 0f,
     val overlayScale: Float = 1f,
-    val publicUiTextScale: Float = 1f
+    val publicUiTextScale: Float = 1f,
+    val publicQrScale: Float = 1f
 ) {
     fun policeColor(tokenId: Int, real: Boolean, identityVisible: Boolean): String {
         if (!identityVisible || !real) return policeColors.getOrElse(5) { "#111111" }
@@ -82,6 +83,7 @@ data class DisplayAppearance(
         .put("overlayOffsetY", overlayOffsetY)
         .put("overlayScale", overlayScale)
         .put("publicUiTextScale", publicUiTextScale)
+        .put("publicQrScale", publicQrScale)
 
     companion object {
         fun fromJson(o: JSONObject?): DisplayAppearance {
@@ -108,7 +110,8 @@ data class DisplayAppearance(
                 overlayOffsetX = o.optDouble("overlayOffsetX", 0.0).toFloat().coerceIn(-400f, 400f),
                 overlayOffsetY = o.optDouble("overlayOffsetY", 0.0).toFloat().coerceIn(-400f, 400f),
                 overlayScale = o.optDouble("overlayScale", 1.0).toFloat().coerceIn(.75f, 1.25f),
-                publicUiTextScale = o.optDouble("publicUiTextScale", 1.0).toFloat().coerceIn(.7f, 2f)
+                publicUiTextScale = o.optDouble("publicUiTextScale", 1.0).toFloat().coerceIn(.7f, 2f),
+                publicQrScale = o.optDouble("publicQrScale", 1.0).toFloat().coerceIn(.5f, 2f)
             )
         }
     }
@@ -290,6 +293,17 @@ fun AppearanceSettingsPage(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("بازنشانی کالیبراسیون نمایش عمومی") }
+                }
+
+                SettingsCard("QR Code نمایش عمومی") {
+                    Text(
+                        "QR شامل آدرس فعلی سرور است و در گوشه بالا-راست نمایش عمومی ثابت می‌ماند.",
+                        color = Color.LightGray,
+                        fontSize = 11.sp
+                    )
+                    ScaleRow("اندازه QR Code", current.publicQrScale, .5f, 2f) {
+                        updateDisplay(current.copy(publicQrScale = it))
+                    }
                 }
             }
         }

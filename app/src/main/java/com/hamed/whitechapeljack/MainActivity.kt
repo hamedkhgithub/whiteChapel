@@ -14,6 +14,7 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -369,7 +370,7 @@ private fun Splash(onDone: () -> Unit) {
                 color = Gold,
                 fontSize = 13.sp,
                 modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Left,
+                textAlign = TextAlign.Center,
                 style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr)
             )
         }
@@ -388,6 +389,7 @@ private fun Home(
 ) {
     var pendingNewGame by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
 
     Box(Modifier.fillMaxSize()) {
         Image(painterResource(R.drawable.home_background), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -405,6 +407,7 @@ if (TvServerInfo.url.isNotBlank()) {
                 clipboard.setText(
                     AnnotatedString(TvServerInfo.url)
                 )
+                Toast.makeText(context, "کپی شد", Toast.LENGTH_SHORT).show()
             }
     )
 }
@@ -1084,7 +1087,7 @@ private fun HomeGameRow(
             contentPadding = PaddingValues(horizontal = 12.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
-                Text(newTitle, color = Color(0xFFF2DFC0), fontWeight = FontWeight.Bold, fontSize = 15.sp, textAlign = TextAlign.Right)
+                Text(newTitle, color = Color(0xFFF2DFC0), fontWeight = FontWeight.Bold, fontSize = 15.sp, textAlign = TextAlign.Right, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 Text(newIcon, fontSize = 24.sp)
             }
